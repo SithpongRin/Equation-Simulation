@@ -223,7 +223,7 @@ export function App() {
   };
 
   return (
-    <div className={`w-screen h-screen flex flex-col overflow-hidden select-none font-['Noto_Sans_Khmer',system-ui,sans-serif] ${
+    <div className={`w-screen h-screen flex flex-col overflow-hidden select-none font-['Kantumruy_Pro',system-ui,sans-serif] ${
       isDark ? 'bg-[#0B1020] text-[#F8FAFC]' : 'bg-[#F8FAFC] text-[#0F172A]'
     }`}>
       {/* ================= 1. CLEAN TOP HEADER ================= */}
