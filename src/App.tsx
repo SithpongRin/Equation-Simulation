@@ -650,68 +650,15 @@ export function App() {
             </form>
           </div>
 
-          {/* Quick Parameters Controller: Adjust x value AND Item (kg) weight */}
-          <div className={`p-3 rounded-2xl border flex flex-col gap-2.5 text-xs mt-auto ${
-            isDark ? 'bg-[#1E293B]/50 border-[#334155]' : 'bg-[#F8FAFC] border-[#E2E8F0]'
-          }`}>
-            <div className="flex items-center justify-between">
-              {/* x adjuster */}
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#64748B] dark:text-[#94A3B8]">តម្លៃ x៖</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setXValue(Math.max(1, equation.xValue - 1))}
-                    className="w-5 h-5 rounded-md flex items-center justify-center font-bold border bg-white dark:bg-[#1E293B]"
-                  >
-                    -
-                  </button>
-                  <span className="font-black text-[#0284C7] dark:text-[#38BDF8] px-1">{equation.xValue}</span>
-                  <button
-                    onClick={() => setXValue(Math.min(25, equation.xValue + 1))}
-                    className="w-5 h-5 rounded-md flex items-center justify-center font-bold border bg-white dark:bg-[#1E293B]"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* item weight (kg) adjuster */}
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#64748B] dark:text-[#94A3B8]">ទម្ងន់ ១ដុំ៖</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      const next = Math.max(1, activeWeight - 1);
-                      setActiveWeight(next);
-                      setItemWeight(next);
-                    }}
-                    className="w-5 h-5 rounded-md flex items-center justify-center font-bold border bg-white dark:bg-[#1E293B]"
-                  >
-                    -
-                  </button>
-                  <span className="font-black text-[#10B981] px-1">{activeWeight}kg</span>
-                  <button
-                    onClick={() => {
-                      const next = Math.min(50, activeWeight + 1);
-                      setActiveWeight(next);
-                      setItemWeight(next);
-                    }}
-                    className="w-5 h-5 rounded-md flex items-center justify-center font-bold border bg-white dark:bg-[#1E293B]"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-1 border-t border-dashed border-gray-200 dark:border-gray-700">
-              <button
-                onClick={autoBalance}
-                className="text-xs font-bold text-[#F59E0B] hover:underline"
-              >
-                ស្មើគ្នាស្វ័យប្រវត្តិ
-              </button>
-            </div>
+          {/* Bottom Action: Auto Balance */}
+          <div className="pt-2 mt-auto">
+            <button
+              onClick={autoBalance}
+              className="w-full py-2.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-black flex items-center justify-center gap-2 transition active:scale-95 shadow-2xs"
+            >
+              <ScaleIcon className="w-4 h-4" />
+              <span>ធ្វើឱ្យមានលំនឹងស្វ័យប្រវត្តិ</span>
+            </button>
           </div>
         </aside>
 

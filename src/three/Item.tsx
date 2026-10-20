@@ -1,7 +1,105 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { ItemThemeId } from '../theme';
+
+// ================= CONTINUOUS SMOOTH 3D CURVED BANANA MESH =================
+const SeamlessBanana: React.FC = () => {
+  const geometry = useMemo(() => {
+    const numSlices = 28; // high density smooth curve
+    const numRadial = 7;  // subtle faceted ridges with smooth normals
+    const positions: number[] = [];
+    const indices: number[] = [];
+    const uvs: number[] = [];
+
+    // Crescent curve math: smooth sag in the middle, curving upward at both ends
+    for (let i = 0; i <= numSlices; i++) {
+      const t = i / numSlices;
+      const x = (t - 0.5) * 0.58;
+      const y = 0.05 + Math.pow(t - 0.5, 2) * 0.42;
+      const z = Math.sin(t * Math.PI) * 0.05;
+
+      // Curve tangent vector
+      const dx = 0.58;
+      const dy = 2 * (t - 0.5) * 0.42;
+      const dz = Math.cos(t * Math.PI) * Math.PI * 0.05;
+      const tangent = new THREE.Vector3(dx, dy, dz).normalize();
+
+      // Normal and binormal for radial expansion
+      const up = new THREE.Vector3(0, 0, 1);
+      const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+      const binormal = new THREE.Vector3().crossVectors(tangent, normal).normalize();
+
+      // Realistic banana tapering: thick at belly, slender at ends
+      const r = Math.sin(t * Math.PI) * 0.072 + 0.014;
+
+      for (let j = 0; j <= numRadial; j++) {
+        const theta = (j / numRadial) * Math.PI * 2;
+        const cos = Math.cos(theta);
+        const sin = Math.sin(theta);
+
+        const vx = x + (normal.x * cos + binormal.x * sin) * r;
+        const vy = y + (normal.y * cos + binormal.y * sin) * r;
+        const vz = z + (normal.z * cos + binormal.z * sin) * r;
+
+        positions.push(vx, vy, vz);
+        uvs.push(t, j / numRadial);
+      }
+    }
+
+    // Connect vertices into smooth triangle mesh
+    for (let i = 0; i < numSlices; i++) {
+      for (let j = 0; j < numRadial; j++) {
+        const a = i * (numRadial + 1) + j;
+        const b = (i + 1) * (numRadial + 1) + j;
+        const c = (i + 1) * (numRadial + 1) + (j + 1);
+        const d = i * (numRadial + 1) + (j + 1);
+
+        indices.push(a, b, d);
+        indices.push(b, c, d);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }, []);
+
+  return (
+    <group rotation={[0.2, 0.45, 0.1]} position={[0, 0.08, 0]}>
+      {/* 1. Continuous Seamless Glossy Yellow Banana Body */}
+      <mesh geometry={geometry} castShadow receiveShadow>
+        <meshStandardMaterial
+          color="#FDE047"
+          roughness={0.22}
+          metalness={0.06}
+        />
+      </mesh>
+
+      {/* 2. Realistic Curved Green Stem at top end */}
+      <group position={[-0.30, 0.17, 0]} rotation={[0, 0, 0.52]}>
+        <mesh position={[0, 0.035, 0]} castShadow>
+          <cylinderGeometry args={[0.013, 0.021, 0.075, 12]} />
+          <meshStandardMaterial color="#84CC16" roughness={0.4} />
+        </mesh>
+        {/* Cut brown stalk cap */}
+        <mesh position={[0, 0.074, 0]}>
+          <cylinderGeometry args={[0.014, 0.014, 0.016, 10]} />
+          <meshStandardMaterial color="#5A3A1A" roughness={0.8} />
+        </mesh>
+      </group>
+
+      {/* 3. Dark flower tip at bottom end */}
+      <mesh position={[0.30, 0.17, 0]} castShadow>
+        <sphereGeometry args={[0.018, 12, 10]} />
+        <meshStandardMaterial color="#3E2712" roughness={0.9} />
+      </mesh>
+    </group>
+  );
+};
 
 interface ItemProps {
   position: [number, number, number];
@@ -80,60 +178,8 @@ export const Item: React.FC<ItemProps> = ({
         </group>
       );
     } else if (fruitType === 2) {
-      // ================= BEAUTIFUL CURVED FACETED 3D BANANA =================
-      // Naturally curved crescent banana with 5 facets, green/brown stem, and dark tip
-      return (
-        <group position={[0, 0.08, 0]} rotation={[0.2, 0.5, 0.1]}>
-          {/* Main curved banana body assembled from gracefully tapered arched segments */}
-          {[-0.24, -0.16, -0.08, 0, 0.08, 0.16, 0.24].map((xOffset, i, arr) => {
-            const t = (i + 0.5) / arr.length;
-            // Crescent sag: middle is lowest, tips curve up
-            const yOffset = 0.08 + Math.pow(t - 0.5, 2) * 0.42;
-            const zOffset = Math.sin(t * Math.PI) * 0.06;
-            // Radius profile: thick in belly, tapered at ends
-            const radius = Math.sin(t * Math.PI) * 0.075 + 0.028;
-            // Subtle angle along curve
-            const rotZ = -(t - 0.5) * 0.9;
-
-            return (
-              <mesh
-                key={i}
-                position={[xOffset * 0.95, yOffset, zOffset]}
-                rotation={[0, 0, rotZ]}
-                castShadow
-                receiveShadow
-              >
-                {/* 5-sided faceted banana geometry */}
-                <cylinderGeometry args={[radius * 0.92, radius, 0.09, 5]} />
-                <meshStandardMaterial
-                  color="#FACC15"
-                  roughness={0.25}
-                  metalness={0.06}
-                />
-              </mesh>
-            );
-          })}
-
-          {/* Green-tinged curved stem at top */}
-          <group position={[-0.26, 0.22, 0]} rotation={[0, 0, 0.45]}>
-            <mesh position={[0, 0.03, 0]} castShadow>
-              <cylinderGeometry args={[0.016, 0.024, 0.07, 6]} />
-              <meshStandardMaterial color="#65A30D" roughness={0.5} />
-            </mesh>
-            {/* Dark cut stem end */}
-            <mesh position={[0, 0.068, 0]}>
-              <cylinderGeometry args={[0.017, 0.017, 0.016, 6]} />
-              <meshStandardMaterial color="#451A03" roughness={0.8} />
-            </mesh>
-          </group>
-
-          {/* Dark blossom tip at bottom */}
-          <mesh position={[0.26, 0.20, 0]} castShadow>
-            <sphereGeometry args={[0.022, 8, 8]} />
-            <meshStandardMaterial color="#451A03" roughness={0.8} />
-          </mesh>
-        </group>
-      );
+      // Authentic Seamless Curved 3D Banana
+      return <SeamlessBanana />;
     } else if (fruitType === 3) {
       // Ruby Anime Rambutan
       return (

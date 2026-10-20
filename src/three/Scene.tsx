@@ -50,17 +50,17 @@ const AnimeParticles: React.FC<{ isDark: boolean }> = ({ isDark }) => {
   );
 };
 
-// Pedestal Plinth Table
+// Seamless Floor Surface
 const TableSurface: React.FC<{ isDark: boolean }> = ({ isDark }) => {
   return (
-    <group position={[0, -0.72, 0]}>
-      {/* Rectangular Wooden Pedestal Table */}
-      <mesh receiveShadow position={[0, -0.1, 0]}>
-        <boxGeometry args={[9, 0.2, 5]} />
+    <group position={[0, -0.68, 0]}>
+      {/* Infinite Seamless Floor Plane */}
+      <mesh receiveShadow position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[50, 50]} />
         <meshStandardMaterial
-          color={isDark ? '#0A0F24' : '#E2E8F0'}
-          roughness={0.7}
-          metalness={0.1}
+          color={isDark ? '#080C1E' : '#F1F5F9'}
+          roughness={0.85}
+          metalness={0.05}
         />
       </mesh>
     </group>

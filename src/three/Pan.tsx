@@ -140,10 +140,20 @@ export const Pan: React.FC<PanProps> = ({
       e.stopPropagation();
       onPanClick();
     }}>
-      {/* ================= TOP-MOUNTED PAN DISH (Clean Flat White Plate) ================= */}
-      {/* Upper flat tray disc */}
-      <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[panRadius, panRadius * 0.94, panDepth, 48]} />
+      {/* ================= TOP-MOUNTED WEIGHING DISH (Matching Vector Reference) ================= */}
+      {/* Distinct Raised Top Lip Rim */}
+      <mesh position={[0, 0.16, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[panRadius + 0.04, panRadius + 0.04, 0.04, 48]} />
+        <meshStandardMaterial
+          color={isHovered ? '#BAE6FD' : '#F1F5F9'}
+          roughness={0.2}
+          metalness={0.08}
+        />
+      </mesh>
+
+      {/* Main Shallow Weighing Dish Bowl */}
+      <mesh position={[0, 0.05, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[panRadius, panRadius * 0.88, 0.20, 48]} />
         <meshStandardMaterial
           color={isHovered ? '#E0F2FE' : '#E8EEF5'}
           roughness={0.25}
@@ -151,27 +161,23 @@ export const Pan: React.FC<PanProps> = ({
         />
       </mesh>
 
-      {/* Under-pan support connector bracket */}
-      <mesh position={[0, -0.12, 0]} castShadow>
-        <cylinderGeometry args={[0.22, 0.16, 0.16, 24]} />
-        <meshStandardMaterial
-          color="#1D4E89"
-          roughness={0.35}
-          metalness={0.2}
-        />
+      {/* Vertical Support Stem Lug */}
+      <mesh position={[0, -0.14, 0]} castShadow>
+        <cylinderGeometry args={[0.11, 0.11, 0.18, 20]} />
+        <meshStandardMaterial color="#1D4E89" roughness={0.3} metalness={0.2} />
       </mesh>
 
-      {/* Under-pan round pivot joint / hinge connecting to beam */}
+      {/* Under-pan round pivot joint facing camera (+Z) */}
       <group position={[0, -0.28, 0]}>
         {/* Outer pivot cylinder ring */}
-        <mesh rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.18, 0.18, 0.18, 24]} />
+        <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.18, 0.18, 0.16, 28]} />
           <meshStandardMaterial color="#1D4E89" roughness={0.3} metalness={0.2} />
         </mesh>
-        {/* Inner white pivot core */}
-        <mesh rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.08, 0.08, 0.19, 20]} />
-          <meshStandardMaterial color="#E2E8F0" roughness={0.2} />
+        {/* Inner white axle pin */}
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.07]}>
+          <cylinderGeometry args={[0.08, 0.08, 0.04, 20]} />
+          <meshStandardMaterial color="#E2E8F0" metalness={0.8} roughness={0.15} />
         </mesh>
       </group>
 
