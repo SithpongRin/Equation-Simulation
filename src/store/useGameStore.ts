@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { EquationState, BalanceMetrics, CustomWeightItem } from '../math/equationModel';
 import { calculateBalance } from '../math/equationModel';
-import { generateProblem } from '../math/problemGenerator';
 import { modifyPan, applyOperationBothSides } from '../math/operations';
 import type { ItemThemeId } from '../theme';
 
@@ -94,6 +93,8 @@ interface GameState {
   setItemWeight: (weight: number) => void;
   setPanCounts: (side: 'left' | 'right', counts: { bags?: number; items?: number; balloons?: number }) => void;
   autoBalance: () => void;
+  updateFruitValue: (fruitType: string, newValue: number) => void;
+  updateWeightValue: (identifier: string, newValue: number) => void;
 }
 
 const STORAGE_KEY = 'equation_lab_3d_state_v1';
@@ -187,52 +188,23 @@ export const useGameStore = create<GameState>((set, get) => {
     guidedMode: persisted.guidedMode,
 
     setLevel: (level: number) => {
-      const problem = generateProblem(level);
-      const balance = calculateBalance(problem.equation);
-      set({
-        level,
-        equation: problem.equation,
-        initialEquation: problem.equation,
-        balanceMetrics: balance,
-        storyKm: problem.storyKm,
-        stepsCount: 0,
-        history: [problem.equation],
-        historyIndex: 0,
-        isSolvedCelebration: false,
-        revealedItemCount: 0,
-      });
+      set({ level });
     },
 
-    loadProblem: (targetLevel?: number) => {
-      const lvl = targetLevel ?? get().level;
-      const problem = generateProblem(lvl);
-      const balance = calculateBalance(problem.equation);
-      set({
-        level: lvl,
-        equation: problem.equation,
-        initialEquation: problem.equation,
-        balanceMetrics: balance,
-        storyKm: problem.storyKm,
-        stepsCount: 0,
-        history: [problem.equation],
-        historyIndex: 0,
-        isSolvedCelebration: false,
-        revealedItemCount: 0,
-      });
+    loadProblem: () => {
+      // Free lab mode - do not load textbook problems
     },
 
     nextProblem: () => {
-      const currentLevel = get().level;
-      const nextLevel = currentLevel >= 6 ? 1 : currentLevel + 1;
-      get().loadProblem(nextLevel);
+      // Free lab mode - do not auto load textbook problems
     },
 
     resetCurrentProblem: () => {
       const initial: EquationState = {
         xValue: 5,
         itemWeight: 1,
-        left: { bags: 0, items: 0, balloons: 0 },
-        right: { bags: 0, items: 0, balloons: 0 },
+        left: { bags: 0, items: 0, balloons: 0, customWeights: [], customVariables: [] },
+        right: { bags: 0, items: 0, balloons: 0, customWeights: [], customVariables: [] },
       };
       const balance = calculateBalance(initial);
       set({
@@ -254,28 +226,14 @@ export const useGameStore = create<GameState>((set, get) => {
 
       const nextHistory = [...history.slice(0, historyIndex + 1), nextEq];
 
-      let solved = nextBalance.isSolved;
-      let streak = get().streak;
-      let stars = { ...get().stars };
-
-      if (solved && !get().isSolvedCelebration) {
-        streak += 1;
-        const currentLevel = get().level;
-        const earnedStars = stepsCount <= 3 ? 3 : stepsCount <= 5 ? 2 : 1;
-        stars[currentLevel] = Math.max(stars[currentLevel] || 0, earnedStars);
-        persistData({ streak, stars });
-      }
-
       set({
         equation: nextEq,
         balanceMetrics: nextBalance,
         history: nextHistory,
         historyIndex: nextHistory.length - 1,
         stepsCount: stepsCount + 1,
-        isSolvedCelebration: solved,
+        isSolvedCelebration: false,
         revealedItemCount: 0,
-        streak,
-        stars,
       });
     },
 
@@ -294,28 +252,14 @@ export const useGameStore = create<GameState>((set, get) => {
       const nextBalance = calculateBalance(nextEq);
       const nextHistory = [...history.slice(0, historyIndex + 1), nextEq];
 
-      let solved = nextBalance.isSolved;
-      let streak = get().streak;
-      let stars = { ...get().stars };
-
-      if (solved && !get().isSolvedCelebration) {
-        streak += 1;
-        const currentLevel = get().level;
-        const earnedStars = stepsCount <= 3 ? 3 : stepsCount <= 5 ? 2 : 1;
-        stars[currentLevel] = Math.max(stars[currentLevel] || 0, earnedStars);
-        persistData({ streak, stars });
-      }
-
       set({
         equation: nextEq,
         balanceMetrics: nextBalance,
         history: nextHistory,
         historyIndex: nextHistory.length - 1,
         stepsCount: stepsCount + 1,
-        isSolvedCelebration: solved,
+        isSolvedCelebration: false,
         revealedItemCount: 0,
-        streak,
-        stars,
       });
     },
 
@@ -325,28 +269,14 @@ export const useGameStore = create<GameState>((set, get) => {
       const nextBalance = calculateBalance(nextEq);
       const nextHistory = [...history.slice(0, historyIndex + 1), nextEq];
 
-      let solved = nextBalance.isSolved;
-      let streak = get().streak;
-      let stars = { ...get().stars };
-
-      if (solved && !get().isSolvedCelebration) {
-        streak += 1;
-        const currentLevel = get().level;
-        const earnedStars = stepsCount <= 3 ? 3 : stepsCount <= 5 ? 2 : 1;
-        stars[currentLevel] = Math.max(stars[currentLevel] || 0, earnedStars);
-        persistData({ streak, stars });
-      }
-
       set({
         equation: nextEq,
         balanceMetrics: nextBalance,
         history: nextHistory,
         historyIndex: nextHistory.length - 1,
         stepsCount: stepsCount + 1,
-        isSolvedCelebration: solved,
+        isSolvedCelebration: false,
         revealedItemCount: 0,
-        streak,
-        stars,
       });
     },
 
@@ -511,6 +441,56 @@ export const useGameStore = create<GameState>((set, get) => {
           items: neededItems,
           balloons: 0,
         },
+      };
+      const nextBalance = calculateBalance(nextEq);
+      set({
+        equation: nextEq,
+        balanceMetrics: nextBalance,
+        history: [...history.slice(0, historyIndex + 1), nextEq],
+        historyIndex: historyIndex + 1,
+      });
+    },
+
+    updateFruitValue: (fruitType: string, newValue: number) => {
+      const { equation, history, historyIndex } = get();
+      const updateList = (list?: any[]) => {
+        if (!list) return [];
+        return list.map((item) => {
+          if (typeof item === 'object' && item.fruitType === fruitType) {
+            return { ...item, value: newValue };
+          }
+          return item;
+        });
+      };
+      const nextEq: EquationState = {
+        ...equation,
+        left: { ...equation.left, customWeights: updateList(equation.left.customWeights) },
+        right: { ...equation.right, customWeights: updateList(equation.right.customWeights) },
+      };
+      const nextBalance = calculateBalance(nextEq);
+      set({
+        equation: nextEq,
+        balanceMetrics: nextBalance,
+        history: [...history.slice(0, historyIndex + 1), nextEq],
+        historyIndex: historyIndex + 1,
+      });
+    },
+
+    updateWeightValue: (identifier: string, newValue: number) => {
+      const { equation, history, historyIndex } = get();
+      const updateList = (list?: any[]) => {
+        if (!list) return [];
+        return list.map((item) => {
+          if (typeof item === 'object' && (item.id === identifier || item.name === identifier)) {
+            return { ...item, value: newValue, name: `${newValue}kg` };
+          }
+          return item;
+        });
+      };
+      const nextEq: EquationState = {
+        ...equation,
+        left: { ...equation.left, customWeights: updateList(equation.left.customWeights) },
+        right: { ...equation.right, customWeights: updateList(equation.right.customWeights) },
       };
       const nextBalance = calculateBalance(nextEq);
       set({

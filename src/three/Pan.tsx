@@ -198,9 +198,28 @@ export const Pan: React.FC<PanProps> = ({
 
         if (isFruit && typeof curItem === 'object') {
           const fruitIdx = curItem.fruitType === 'apple' ? 0 : curItem.fruitType === 'banana' ? 2 : 1;
+          const handleRemove = (e: any) => {
+            e.stopPropagation();
+            onRemoveItem('item', numVal, undefined, curItem);
+          };
+
           return (
-            <group key={`fruit-${idx}`} position={pos} onClick={() => onRemoveItem('item', numVal, undefined, curItem)}>
-              <Item position={[0, 0.1, 0]} variantIndex={fruitIdx} scale={2.6} />
+            <group
+              key={`fruit-${idx}`}
+              position={pos}
+              onClick={handleRemove}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {/* Invisible clickable hit mesh for 100% reliable raycast click & removal */}
+              <mesh
+                position={[0, 0.35, 0]}
+                onClick={handleRemove}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <sphereGeometry args={[0.55, 16, 16]} />
+                <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+              </mesh>
+              <Item position={[0, 0.1, 0]} variantIndex={fruitIdx} scale={2.6} onClick={() => onRemoveItem('item', numVal, undefined, curItem)} />
             </group>
           );
         }

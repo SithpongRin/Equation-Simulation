@@ -52,11 +52,19 @@ export function modifyPan(
       if (delta > 0) {
         customWeights.push(customWeightItem);
       } else {
-        const idx = customWeights.findLastIndex((w) =>
-          typeof w === 'object' ? w.name === customWeightItem.name : w === customWeightItem.value
-        );
+        const idx = customWeights.findLastIndex((w) => {
+          if (typeof w === 'object') {
+            if (customWeightItem.id && w.id === customWeightItem.id) return true;
+            if (customWeightItem.fruitType && w.fruitType === customWeightItem.fruitType) return true;
+            if (customWeightItem.name && w.name === customWeightItem.name) return true;
+            return w.value === customWeightItem.value;
+          }
+          return w === customWeightItem.value;
+        });
         if (idx >= 0) {
           customWeights.splice(idx, 1);
+        } else if (customWeights.length > 0) {
+          customWeights.pop();
         } else {
           pan.items = Math.max(0, pan.items + delta);
         }

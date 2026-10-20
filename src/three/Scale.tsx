@@ -6,6 +6,7 @@ import { useGameStore } from '../store/useGameStore';
 
 export const Scale: React.FC = () => {
   const beamRef = useRef<THREE.Group>(null);
+  const lowerBeamRef = useRef<THREE.Group>(null);
   const pointerRef = useRef<THREE.Group>(null);
   const leftPanRef = useRef<THREE.Group>(null);
   const rightPanRef = useRef<THREE.Group>(null);
@@ -24,18 +25,19 @@ export const Scale: React.FC = () => {
 
   const isDark = colorMode === 'dark';
 
-  // Compact Modern Lab Scale Dimensions (Matching the reference design)
+  // Precision Laboratory Roberval Dimensions
   const BEAM_HALF_SPAN = 3.2;
-  const FULCRUM_Y = 1.05;
-  const PAN_MOUNT_OFFSET_Y = 0.28;
+  const FULCRUM_Y = 1.35;
+  const LOWER_BEAM_Y = 0.82;
+  const PAN_MOUNT_OFFSET_Y = 0.35;
 
   useFrame((_, delta) => {
     const targetAngle = balance.angleRad;
     const dt = Math.min(delta, 0.05);
 
-    // Realistic physics spring-damping
-    const stiffness = 24.0;
-    const damping = 4.8;
+    // Realistic physics spring-damping with subtle inertia
+    const stiffness = 22.0;
+    const damping = 4.5;
 
     const angleDiff = targetAngle - currentAngleRef.current;
     velocityRef.current += (angleDiff * stiffness - velocityRef.current * damping) * dt;
@@ -43,14 +45,19 @@ export const Scale: React.FC = () => {
 
     const angle = currentAngleRef.current;
 
-    // Rotate beam
+    // Rotate main upper beam
     if (beamRef.current) {
       beamRef.current.rotation.z = angle;
     }
 
-    // Needle pointer
+    // Rotate lower parallel Roberval guide beam
+    if (lowerBeamRef.current) {
+      lowerBeamRef.current.rotation.z = angle;
+    }
+
+    // Pointer needle swings with beam
     if (pointerRef.current) {
-      pointerRef.current.rotation.z = angle;
+      pointerRef.current.rotation.z = angle * 1.35;
     }
 
     // Top-mounted pans stay horizontally level
@@ -68,129 +75,265 @@ export const Scale: React.FC = () => {
     }
   };
 
-  // High quality blue theme matching reference image
-  const primaryBlue = '#1D4E89';       // Deep marine blue from user image
-  const pivotAccent = '#E2E8F0';       // Crisp white-grey pivot circle
-  const baseWhite = '#FFFFFF';         // White base plate
+  // Premium Laboratory Palette
+  const marineBlue = '#1E3A8A';       // Deep precision navy lacquer
+  const beamBlue = '#2563EB';         // Polished cobalt beam
+  const chromeMetal = '#E2E8F0';      // Polished stainless steel / chrome
+  const darkSteel = '#0F172A';        // Gunmetal accents
+  const brassAccent = '#F59E0B';      // Machined brass thumbscrews & dial
+  const dialPlate = isDark ? '#1E293B' : '#F8FAFC';
 
   return (
     <group position={[0, -0.65, 0]} scale={1.12}>
-      {/* ================= 1. CLEAN FLAT WHITE/GREY PEDESTAL BASE ================= */}
-      {/* Lower plinth */}
-      <mesh position={[0, 0.04, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.5, 0.08, 0.8]} />
+      {/* ================= 1. HEAVY CAST-IRON BEVELED BASE PLINTH ================= */}
+      {/* 4 Precision Machined Brass Leveling Screws at Base Corners */}
+      {[
+        [-0.88, 0.03, -0.36],
+        [0.88, 0.03, -0.36],
+        [-0.88, 0.03, 0.36],
+        [0.88, 0.03, 0.36],
+      ].map((pos, idx) => (
+        <group key={`foot-${idx}`} position={pos as [number, number, number]}>
+          {/* Knurled brass thumb wheel */}
+          <mesh castShadow>
+            <cylinderGeometry args={[0.075, 0.085, 0.045, 24]} />
+            <meshStandardMaterial color={brassAccent} metalness={0.85} roughness={0.25} />
+          </mesh>
+          {/* Rubber foot pad */}
+          <mesh position={[0, -0.03, 0]}>
+            <cylinderGeometry args={[0.065, 0.065, 0.02, 16]} />
+            <meshStandardMaterial color="#0F172A" roughness={0.9} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Main Base Casting Plinth with Beveled Edge */}
+      <mesh position={[0, 0.05, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.9, 0.08, 0.88]} />
         <meshStandardMaterial
-          color={isDark ? '#1E293B' : baseWhite}
-          roughness={0.4}
-          metalness={0.05}
+          color={isDark ? '#0F172A' : '#E2E8F0'}
+          roughness={0.35}
+          metalness={0.2}
         />
       </mesh>
-      {/* Upper stepped trim */}
-      <mesh position={[0, 0.1, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.3, 0.06, 0.68]} />
+
+      {/* Upper Precision Stepped Plate */}
+      <mesh position={[0, 0.11, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.65, 0.05, 0.74]} />
         <meshStandardMaterial
-          color={isDark ? '#334155' : '#F1F5F9'}
-          roughness={0.3}
-          metalness={0.05}
+          color={isDark ? '#1E293B' : '#FFFFFF'}
+          roughness={0.25}
+          metalness={0.15}
         />
       </mesh>
 
-      {/* ================= 2. ARCHED TRIANGULAR CENTRAL FULCRUM HOUSING ================= */}
-      <group position={[0, 0.13, 0]}>
-        {/* Flared bottom support */}
-        <mesh position={[0, 0.18, 0]} castShadow>
-          <cylinderGeometry args={[0.38, 0.52, 0.36, 32]} />
-          <meshStandardMaterial color={primaryBlue} roughness={0.35} metalness={0.15} />
-        </mesh>
+      {/* Centered Brass Manufacturer & Calibration Plaque */}
+      <mesh position={[0, 0.14, 0.28]} castShadow>
+        <boxGeometry args={[0.48, 0.015, 0.12]} />
+        <meshStandardMaterial color={brassAccent} metalness={0.9} roughness={0.2} />
+      </mesh>
 
-        {/* Central pointed Gothic / Teardrop Arch Fulcrum */}
-        <mesh position={[0, 0.85, 0]} castShadow>
-          <cylinderGeometry args={[0.08, 0.42, 1.05, 32]} />
-          <meshStandardMaterial color={primaryBlue} roughness={0.35} metalness={0.15} />
-        </mesh>
+      {/* ================= 2. ARCHITECTURAL CENTRAL FULCRUM COLUMN ================= */}
+      {/* Heavy Flanged Column Pedestal */}
+      <mesh position={[0, 0.34, 0]} castShadow>
+        <cylinderGeometry args={[0.34, 0.52, 0.42, 32]} />
+        <meshStandardMaterial color={marineBlue} roughness={0.3} metalness={0.2} />
+      </mesh>
 
-        {/* Round Central Fulcrum Pivot Ring with crisp white axle dot and LED Status Light */}
-        <group position={[0, 0.88, 0.18]}>
-          <mesh rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.26, 0.26, 0.12, 32]} />
-            <meshStandardMaterial color={primaryBlue} roughness={0.3} metalness={0.15} />
+      {/* Twin Fluted Gothic Central Towers (Front & Rear Pillars) */}
+      <mesh position={[0, 0.95, -0.06]} castShadow>
+        <boxGeometry args={[0.38, 0.85, 0.12]} />
+        <meshStandardMaterial color={marineBlue} roughness={0.3} metalness={0.2} />
+      </mesh>
+      <mesh position={[0, 0.95, 0.06]} castShadow>
+        <boxGeometry args={[0.38, 0.85, 0.12]} />
+        <meshStandardMaterial color={marineBlue} roughness={0.3} metalness={0.2} />
+      </mesh>
+
+      {/* ================= 3. CALIBRATED DEGREE DIAL & SWINGING NEEDLE ================= */}
+      {/* Semi-circular Degree Arc Plate */}
+      <group position={[0, 0.62, 0.14]}>
+        {/* Dial Face Plate */}
+        <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.38, 0.38, 0.018, 36, 1, false, Math.PI * 0.72, Math.PI * 0.56]} />
+          <meshStandardMaterial color={dialPlate} roughness={0.2} metalness={0.1} />
+        </mesh>
+        {/* Outer Dial Brass Rim */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.38, 0.015, 12, 36, Math.PI * 0.56]} />
+          <meshStandardMaterial color={brassAccent} metalness={0.85} roughness={0.25} />
+        </mesh>
+        {/* Center Zero Calibration Mark */}
+        <mesh position={[0, -0.22, 0.012]}>
+          <boxGeometry args={[0.015, 0.07, 0.01]} />
+          <meshStandardMaterial color={balance.isBalanced ? '#10B981' : '#EF4444'} roughness={0.2} />
+        </mesh>
+        {/* Left & Right Graduation Ticks */}
+        {[-0.14, -0.07, 0.07, 0.14].map((xOffset, i) => (
+          <mesh key={`tick-${i}`} position={[xOffset, -0.23, 0.012]}>
+            <boxGeometry args={[0.008, 0.045, 0.008]} />
+            <meshStandardMaterial color="#94A3B8" roughness={0.4} />
           </mesh>
-          {/* LED Ring Housing */}
-          <mesh rotation={[0, 0, Math.PI / 2]} position={[0, 0, 0.04]}>
-            <cylinderGeometry args={[0.14, 0.14, 0.08, 28]} />
-            <meshStandardMaterial color="#0F172A" roughness={0.5} metalness={0.8} />
+        ))}
+      </group>
+
+      {/* Swinging Needle Pointer (Hangs from Fulcrum, points down at dial) */}
+      <group position={[0, FULCRUM_Y, 0.15]}>
+        <group ref={pointerRef}>
+          {/* Slender tapered needle */}
+          <mesh position={[0, -0.42, 0]} castShadow>
+            <cylinderGeometry args={[0.006, 0.016, 0.74, 12]} />
+            <meshStandardMaterial color={balance.isBalanced ? '#10B981' : '#EF4444'} roughness={0.2} metalness={0.3} />
           </mesh>
-          {/* Glowing LED Center Bulb: Green (#10B981) when balanced, Red (#EF4444) when unbalanced */}
-          <mesh rotation={[0, 0, Math.PI / 2]} position={[0, 0, 0.07]}>
-            <cylinderGeometry args={[0.09, 0.09, 0.06, 24]} />
-            <meshStandardMaterial
-              color={balance.isBalanced ? '#10B981' : '#EF4444'}
-              emissive={balance.isBalanced ? '#10B981' : '#EF4444'}
-              emissiveIntensity={1.8}
-              roughness={0.1}
-            />
+          {/* Arrowhead pointer tip */}
+          <mesh position={[0, -0.80, 0]} rotation={[0, 0, Math.PI]}>
+            <coneGeometry args={[0.024, 0.06, 12]} />
+            <meshStandardMaterial color={balance.isBalanced ? '#10B981' : '#EF4444'} roughness={0.2} />
           </mesh>
-          {/* Point light casting subtle glow from LED */}
-          <pointLight
-            position={[0, 0, 0.12]}
-            color={balance.isBalanced ? '#10B981' : '#EF4444'}
-            intensity={1.2}
-            distance={2.5}
-          />
         </group>
       </group>
 
-      {/* ================= 3. ROTATING TAPERED LEVER BEAM ================= */}
+      {/* ================= 4. CENTRAL FULCRUM PIVOT WITH FORWARD-FACING HIGH-TECH STATUS LED ================= */}
+      <group position={[0, FULCRUM_Y, 0.15]}>
+        {/* Outer Heavy Circular Chrome Bezel */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.26, 0.26, 0.09, 36]} />
+          <meshStandardMaterial color={chromeMetal} metalness={0.9} roughness={0.12} />
+        </mesh>
+
+        {/* Marine Blue Housing Collar */}
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.02]}>
+          <cylinderGeometry args={[0.22, 0.22, 0.07, 36]} />
+          <meshStandardMaterial color={marineBlue} roughness={0.3} metalness={0.2} />
+        </mesh>
+
+        {/* Dark Inner Bezel Cavity */}
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.045]}>
+          <cylinderGeometry args={[0.17, 0.17, 0.05, 32]} />
+          <meshStandardMaterial color={darkSteel} roughness={0.6} metalness={0.7} />
+        </mesh>
+
+        {/* Glowing LED Outer Halo Ring */}
+        <mesh position={[0, 0, 0.075]}>
+          <torusGeometry args={[0.13, 0.016, 16, 36]} />
+          <meshStandardMaterial
+            color={balance.isBalanced ? '#10B981' : '#EF4444'}
+            emissive={balance.isBalanced ? '#10B981' : '#EF4444'}
+            emissiveIntensity={balance.isBalanced ? 2.5 : 2.0}
+            roughness={0.1}
+          />
+        </mesh>
+
+        {/* Forward-Facing Domed Crystal LED Lens */}
+        <mesh position={[0, 0, 0.07]} rotation={[Math.PI / 2, 0, 0]}>
+          <sphereGeometry args={[0.11, 24, 16]} />
+          <meshStandardMaterial
+            color={balance.isBalanced ? '#34D399' : '#F87171'}
+            emissive={balance.isBalanced ? '#10B981' : '#EF4444'}
+            emissiveIntensity={balance.isBalanced ? 3.5 : 3.0}
+            roughness={0.15}
+            metalness={0.1}
+          />
+        </mesh>
+
+        {/* Front Point Light illuminating scale and indicator */}
+        <pointLight
+          position={[0, 0, 0.22]}
+          color={balance.isBalanced ? '#10B981' : '#EF4444'}
+          intensity={balance.isBalanced ? 3.2 : 2.4}
+          distance={3.5}
+        />
+      </group>
+
+      {/* ================= 5. LOWER PARALLEL ROBERVAL GUIDE BEAM ================= */}
+      <group ref={lowerBeamRef} position={[0, LOWER_BEAM_Y, 0]}>
+        {/* Slender lower stabilizing bar with chrome end pivots */}
+        <mesh castShadow>
+          <boxGeometry args={[BEAM_HALF_SPAN * 2 - 0.2, 0.09, 0.08]} />
+          <meshStandardMaterial color={marineBlue} roughness={0.35} metalness={0.2} />
+        </mesh>
+        {/* Center pivot pin */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.07, 0.07, 0.22, 20]} />
+          <meshStandardMaterial color={chromeMetal} metalness={0.85} roughness={0.2} />
+        </mesh>
+      </group>
+
+      {/* ================= 6. MAIN ROTATING UPPER LATTICE TRUSS BEAM ================= */}
       <group ref={beamRef} position={[0, FULCRUM_Y, 0]}>
-        {/* Left Tapered Beam Arm (thick at center, gentle taper outward) */}
+        {/* Left Beam Arm with Relief Cutouts & Taper */}
         <group position={[-BEAM_HALF_SPAN / 2, 0, 0]}>
-          {/* Main arm bar */}
-          <mesh castShadow>
-            <boxGeometry args={[BEAM_HALF_SPAN - 0.2, 0.18, 0.12]} />
-            <meshStandardMaterial color={primaryBlue} roughness={0.35} metalness={0.15} />
+          {/* Main Top Rail */}
+          <mesh position={[0, 0.06, 0]} castShadow>
+            <boxGeometry args={[BEAM_HALF_SPAN - 0.15, 0.07, 0.13]} />
+            <meshStandardMaterial color={beamBlue} roughness={0.3} metalness={0.25} />
           </mesh>
-          {/* Subtle wedge taper */}
-          <mesh position={[0.5, 0.03, 0]} rotation={[0, 0, -0.03]}>
-            <boxGeometry args={[BEAM_HALF_SPAN - 1.2, 0.08, 0.11]} />
-            <meshStandardMaterial color={primaryBlue} roughness={0.35} metalness={0.15} />
+          {/* Main Bottom Rail */}
+          <mesh position={[0, -0.06, 0]} castShadow>
+            <boxGeometry args={[BEAM_HALF_SPAN - 0.15, 0.07, 0.13]} />
+            <meshStandardMaterial color={beamBlue} roughness={0.3} metalness={0.25} />
+          </mesh>
+          {/* Webbing & Truss Struts */}
+          {[-1.0, -0.4, 0.2, 0.8].map((x, i) => (
+            <mesh key={`l-strut-${i}`} position={[x, 0, 0]} rotation={[0, 0, i % 2 === 0 ? 0.35 : -0.35]}>
+              <boxGeometry args={[0.06, 0.18, 0.11]} />
+              <meshStandardMaterial color={marineBlue} roughness={0.35} metalness={0.2} />
+            </mesh>
+          ))}
+          {/* Brass Counter-Balance End Nut */}
+          <mesh position={[-BEAM_HALF_SPAN / 2 + 0.12, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.05, 0.05, 0.08, 16]} />
+            <meshStandardMaterial color={brassAccent} metalness={0.9} roughness={0.2} />
           </mesh>
         </group>
 
-        {/* Right Tapered Beam Arm */}
+        {/* Right Beam Arm with Relief Cutouts & Taper */}
         <group position={[BEAM_HALF_SPAN / 2, 0, 0]}>
-          {/* Main arm bar */}
-          <mesh castShadow>
-            <boxGeometry args={[BEAM_HALF_SPAN - 0.2, 0.18, 0.12]} />
-            <meshStandardMaterial color={primaryBlue} roughness={0.35} metalness={0.15} />
+          {/* Main Top Rail */}
+          <mesh position={[0, 0.06, 0]} castShadow>
+            <boxGeometry args={[BEAM_HALF_SPAN - 0.15, 0.07, 0.13]} />
+            <meshStandardMaterial color={beamBlue} roughness={0.3} metalness={0.25} />
           </mesh>
-          {/* Subtle wedge taper */}
-          <mesh position={[-0.5, 0.03, 0]} rotation={[0, 0, 0.03]}>
-            <boxGeometry args={[BEAM_HALF_SPAN - 1.2, 0.08, 0.11]} />
-            <meshStandardMaterial color={primaryBlue} roughness={0.35} metalness={0.15} />
+          {/* Main Bottom Rail */}
+          <mesh position={[0, -0.06, 0]} castShadow>
+            <boxGeometry args={[BEAM_HALF_SPAN - 0.15, 0.07, 0.13]} />
+            <meshStandardMaterial color={beamBlue} roughness={0.3} metalness={0.25} />
+          </mesh>
+          {/* Webbing & Truss Struts */}
+          {[-0.8, -0.2, 0.4, 1.0].map((x, i) => (
+            <mesh key={`r-strut-${i}`} position={[x, 0, 0]} rotation={[0, 0, i % 2 === 0 ? -0.35 : 0.35]}>
+              <boxGeometry args={[0.06, 0.18, 0.11]} />
+              <meshStandardMaterial color={marineBlue} roughness={0.35} metalness={0.2} />
+            </mesh>
+          ))}
+          {/* Brass Counter-Balance End Nut */}
+          <mesh position={[BEAM_HALF_SPAN / 2 - 0.12, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.05, 0.05, 0.08, 16]} />
+            <meshStandardMaterial color={brassAccent} metalness={0.9} roughness={0.2} />
           </mesh>
         </group>
 
-        {/* Left End Bearing / Circular Hinge Housing */}
+        {/* Left End Bearing Housing */}
         <group position={[-BEAM_HALF_SPAN, 0, 0]}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.22, 0.22, 0.16, 28]} />
-            <meshStandardMaterial color={primaryBlue} roughness={0.3} metalness={0.15} />
+          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[0.22, 0.22, 0.18, 28]} />
+            <meshStandardMaterial color={marineBlue} roughness={0.3} metalness={0.2} />
           </mesh>
-          <mesh rotation={[0, 0, Math.PI / 2]} position={[0, 0, 0.06]}>
-            <cylinderGeometry args={[0.11, 0.11, 0.08, 24]} />
-            <meshStandardMaterial color={pivotAccent} roughness={0.2} metalness={0.05} />
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.08]}>
+            <cylinderGeometry args={[0.12, 0.12, 0.04, 24]} />
+            <meshStandardMaterial color={chromeMetal} metalness={0.85} roughness={0.15} />
           </mesh>
         </group>
 
-        {/* Right End Bearing / Circular Hinge Housing */}
+        {/* Right End Bearing Housing */}
         <group position={[BEAM_HALF_SPAN, 0, 0]}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.22, 0.22, 0.16, 28]} />
-            <meshStandardMaterial color={primaryBlue} roughness={0.3} metalness={0.15} />
+          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[0.22, 0.22, 0.18, 28]} />
+            <meshStandardMaterial color={marineBlue} roughness={0.3} metalness={0.2} />
           </mesh>
-          <mesh rotation={[0, 0, Math.PI / 2]} position={[0, 0, 0.06]}>
-            <cylinderGeometry args={[0.11, 0.11, 0.08, 24]} />
-            <meshStandardMaterial color={pivotAccent} roughness={0.2} metalness={0.05} />
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.08]}>
+            <cylinderGeometry args={[0.12, 0.12, 0.04, 24]} />
+            <meshStandardMaterial color={chromeMetal} metalness={0.85} roughness={0.15} />
           </mesh>
         </group>
 

@@ -80,20 +80,57 @@ export const Item: React.FC<ItemProps> = ({
         </group>
       );
     } else if (fruitType === 2) {
-      // Vibrant Anime Banana
+      // ================= BEAUTIFUL CURVED FACETED 3D BANANA =================
+      // Naturally curved crescent banana with 5 facets, green/brown stem, and dark tip
       return (
-        <group rotation={[0.1, 0.6, 0.35]}>
-          <mesh position={[0, 0.16, 0]} scale={[0.7, 1.65, 0.7]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.09, 0.12, 0.32, 12]} />
-            <meshStandardMaterial
-              color="#FDE047"
-              roughness={0.2}
-              metalness={0.08}
-            />
-          </mesh>
-          <mesh position={[0, 0.34, 0]} castShadow>
-            <coneGeometry args={[0.038, 0.07, 8]} />
-            <meshStandardMaterial color="#84CC16" roughness={0.7} />
+        <group position={[0, 0.08, 0]} rotation={[0.2, 0.5, 0.1]}>
+          {/* Main curved banana body assembled from gracefully tapered arched segments */}
+          {[-0.24, -0.16, -0.08, 0, 0.08, 0.16, 0.24].map((xOffset, i, arr) => {
+            const t = (i + 0.5) / arr.length;
+            // Crescent sag: middle is lowest, tips curve up
+            const yOffset = 0.08 + Math.pow(t - 0.5, 2) * 0.42;
+            const zOffset = Math.sin(t * Math.PI) * 0.06;
+            // Radius profile: thick in belly, tapered at ends
+            const radius = Math.sin(t * Math.PI) * 0.075 + 0.028;
+            // Subtle angle along curve
+            const rotZ = -(t - 0.5) * 0.9;
+
+            return (
+              <mesh
+                key={i}
+                position={[xOffset * 0.95, yOffset, zOffset]}
+                rotation={[0, 0, rotZ]}
+                castShadow
+                receiveShadow
+              >
+                {/* 5-sided faceted banana geometry */}
+                <cylinderGeometry args={[radius * 0.92, radius, 0.09, 5]} />
+                <meshStandardMaterial
+                  color="#FACC15"
+                  roughness={0.25}
+                  metalness={0.06}
+                />
+              </mesh>
+            );
+          })}
+
+          {/* Green-tinged curved stem at top */}
+          <group position={[-0.26, 0.22, 0]} rotation={[0, 0, 0.45]}>
+            <mesh position={[0, 0.03, 0]} castShadow>
+              <cylinderGeometry args={[0.016, 0.024, 0.07, 6]} />
+              <meshStandardMaterial color="#65A30D" roughness={0.5} />
+            </mesh>
+            {/* Dark cut stem end */}
+            <mesh position={[0, 0.068, 0]}>
+              <cylinderGeometry args={[0.017, 0.017, 0.016, 6]} />
+              <meshStandardMaterial color="#451A03" roughness={0.8} />
+            </mesh>
+          </group>
+
+          {/* Dark blossom tip at bottom */}
+          <mesh position={[0.26, 0.20, 0]} castShadow>
+            <sphereGeometry args={[0.022, 8, 8]} />
+            <meshStandardMaterial color="#451A03" roughness={0.8} />
           </mesh>
         </group>
       );

@@ -30,17 +30,16 @@ export function App() {
   const balance = useGameStore((s) => s.balanceMetrics);
   const colorMode = useGameStore((s) => s.colorMode);
   const toggleColorMode = useGameStore((s) => s.toggleColorMode);
-  const nextProblem = useGameStore((s) => s.nextProblem);
   const resetCurrentProblem = useGameStore((s) => s.resetCurrentProblem);
   const setXValue = useGameStore((s) => s.setXValue);
   const setItemWeight = useGameStore((s) => s.setItemWeight);
+  const updateFruitValue = useGameStore((s) => s.updateFruitValue);
+  const updateWeightValue = useGameStore((s) => s.updateWeightValue);
   const autoBalance = useGameStore((s) => s.autoBalance);
   const undo = useGameStore((s) => s.undo);
   const redo = useGameStore((s) => s.redo);
   const historyIndex = useGameStore((s) => s.historyIndex);
   const history = useGameStore((s) => s.history);
-  const isSolvedCelebration = useGameStore((s) => s.isSolvedCelebration);
-  const dismissCelebration = useGameStore((s) => s.dismissCelebration);
   const setDraggedType = useGameStore((s) => s.setDraggedType);
   const draggedType = useGameStore((s) => s.draggedType);
   const draggedWeight = useGameStore((s) => s.draggedWeight);
@@ -69,6 +68,8 @@ export function App() {
   }
 
   const CUSTOM_BLOCKS_KEY = 'equation_lab_custom_blocks_v2';
+
+  const fruitEmoji = (type?: string) => (type === 'apple' ? '🍎' : type === 'banana' ? '🍌' : '🥭');
 
   const defaultBlocks: CustomBlock[] = [
     { id: 'var-x', type: 'variable', name: 'x', value: 5 },
@@ -110,11 +111,12 @@ export function App() {
   const handleCreateBlock = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = newBlockName.trim();
-    if (!trimmed) return;
+    if (!trimmed && newBlockType !== 'weight') return;
+    const finalName = newBlockType === 'weight' ? `${newBlockValue}kg` : trimmed;
     const block: CustomBlock = {
       id: `custom-${Date.now()}`,
       type: newBlockType,
-      name: trimmed,
+      name: finalName,
       value: newBlockValue, // can be positive or negative e.g. -1, 4
       fruitType: newBlockType === 'fruit' ? newFruitType : undefined,
     };
@@ -122,11 +124,31 @@ export function App() {
     if (newBlockType === 'variable') {
       setNewBlockName(String.fromCharCode(trimmed.charCodeAt(0) + 1));
     } else if (newBlockType === 'weight') {
-      setNewBlockName(`${newBlockValue >= 0 ? newBlockValue + 1 : newBlockValue}kg`);
+      const nextVal = newBlockValue >= 0 ? newBlockValue + 1 : newBlockValue;
+      setNewBlockValue(nextVal);
+      setNewBlockName(`${nextVal}kg`);
     } else {
       setNewBlockName(newFruitType === 'apple' ? 'ចេក' : newFruitType === 'banana' ? 'ស្វាយ' : 'ប៉ោម');
       setNewFruitType(newFruitType === 'apple' ? 'banana' : newFruitType === 'banana' ? 'mango' : 'apple');
     }
+  };
+
+  const handleUpdateBlockValue = (id: string, deltaOrValue: number, isDirect = false) => {
+    setCustomBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id !== id) return b;
+        const nextVal = isDirect ? deltaOrValue : b.value + deltaOrValue;
+        const nextName = b.type === 'weight' ? `${nextVal}kg` : b.name;
+        if (b.type === 'fruit' && b.fruitType) {
+          updateFruitValue(b.fruitType, nextVal);
+        } else if (b.type === 'weight') {
+          updateWeightValue(b.id, nextVal);
+        } else if (b.type === 'variable' && b.name.toLowerCase() === 'x') {
+          setXValue(nextVal);
+        }
+        return { ...b, value: nextVal, name: nextName };
+      })
+    );
   };
 
   const handleDeleteBlock = (id: string, e: React.MouseEvent) => {
@@ -149,16 +171,18 @@ export function App() {
     }
   }, [colorMode]);
 
+  const prevBalancedRef = useRef(false);
   useEffect(() => {
-    if (isSolvedCelebration) {
+    if (balance.isBalanced && !prevBalancedRef.current) {
       confetti({
-        particleCount: 80,
-        spread: 70,
+        particleCount: 70,
+        spread: 60,
         origin: { y: 0.6 },
         colors: ['#10B981', '#38BDF8', '#F59E0B', '#EF4444'],
       });
     }
-  }, [isSolvedCelebration]);
+    prevBalancedRef.current = balance.isBalanced;
+  }, [balance.isBalanced]);
 
   // Global pointer move & up listeners for smooth drag & drop
   useEffect(() => {
@@ -412,13 +436,74 @@ export function App() {
             </div>
           </div>
 
+          {/* ================= DEDICATED SECTION: កំណត់តម្លៃផ្លែឈើ (Fruit Weights Configuration) ================= */}
+          <div className={`p-3 rounded-2xl border flex flex-col gap-2.5 shadow-xs ${
+            isDark ? 'bg-[#1E293B]/70 border-[#334155]' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+          }`}>
+            <div className="flex items-center justify-between border-b pb-1.5 border-amber-500/20">
+              <span className="text-xs font-black text-amber-500 flex items-center gap-1.5">
+                <span>🍎</span>
+                <span>កំណត់តម្លៃផ្លែឈើ</span>
+              </span>
+              <span className="text-[10px] text-[#94A3B8] font-bold">កែតម្លៃបានភ្លាមៗ</span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {customBlocks.filter((b) => b.type === 'fruit').map((fruit) => (
+                <div
+                  key={fruit.id}
+                  className={`flex items-center justify-between p-2 rounded-xl border transition ${
+                    isDark ? 'bg-[#0F172A]/70 border-[#334155]' : 'bg-white border-[#E2E8F0] shadow-2xs'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">
+                      {fruit.fruitType === 'apple' ? '🍎' : fruit.fruitType === 'banana' ? '🍌' : '🥭'}
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold">{fruit.name}</span>
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-extrabold">{fruit.value} គីឡូក្រាម</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateBlockValue(fruit.id, -1)}
+                      className="w-6 h-6 rounded-md flex items-center justify-center font-black border text-xs hover:bg-black/5 dark:hover:bg-white/10 active:scale-90"
+                      title="បន្ថយទម្ងន់"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      value={fruit.value}
+                      onChange={(e) => handleUpdateBlockValue(fruit.id, parseInt(e.target.value) || 0, true)}
+                      className={`w-12 h-6 rounded border text-center text-xs font-black ${
+                        isDark ? 'bg-[#1E293B] border-[#334155] text-amber-300' : 'bg-[#FEF3C7] border-amber-300 text-amber-800'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateBlockValue(fruit.id, 1)}
+                      className="w-6 h-6 rounded-md flex items-center justify-center font-black border text-xs hover:bg-black/5 dark:hover:bg-white/10 active:scale-90"
+                      title="បង្កើនទម្ងន់"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Form to Create Custom Box Variable & Box Value */}
           <div className={`p-3 rounded-2xl border flex flex-col gap-2.5 shadow-xs ${
             isDark ? 'bg-[#1E293B]/70 border-[#334155]' : 'bg-[#F8FAFC] border-[#E2E8F0]'
           }`}>
             <span className="text-xs font-black text-[#0284C7] dark:text-[#38BDF8] flex items-center gap-1.5">
               <PlusCircle className="w-4 h-4" />
-              <span>បង្កើតប្រអប់ / ដុំទម្ងន់</span>
+              <span>បង្កើតប្រអប់ / ដុំទម្ងន់ / ផ្លែឈើ</span>
             </span>
 
             <form onSubmit={handleCreateBlock} className="flex flex-col gap-2">
@@ -442,8 +527,8 @@ export function App() {
                   type="button"
                   onClick={() => {
                     setNewBlockType('weight');
-                    setNewBlockName('4kg');
                     setNewBlockValue(4);
+                    setNewBlockName('4kg');
                   }}
                   className={`flex-1 py-1 rounded-lg text-xs font-bold border transition ${
                     newBlockType === 'weight'
@@ -494,39 +579,67 @@ export function App() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                <div className="flex-1 flex flex-col">
-                  <label className="text-[10px] text-[#64748B] dark:text-[#94A3B8] font-bold">
-                    {newBlockType === 'variable' ? 'ឈ្មោះអថេរ' : newBlockType === 'fruit' ? 'ឈ្មោះផ្លែឈើ' : 'ស្លាកទម្ងន់'}
+              {/* Weight Block: Label & Numeric Value are ALWAYS strictly unified */}
+              {newBlockType === 'weight' ? (
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-[#10B981] font-bold">
+                    ស្លាកទម្ងន់ និង ទម្ងន់ kg (មានតម្លៃដូចគ្នាជានិច្ច)
                   </label>
-                  <input
-                    type="text"
-                    value={newBlockName}
-                    onChange={(e) => setNewBlockName(e.target.value)}
-                    maxLength={6}
-                    className={`px-2 py-1.5 rounded-lg border text-xs font-bold ${
-                      isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-[#CBD5E1] text-black'
-                    }`}
-                    placeholder={newBlockType === 'variable' ? 'y, z, a' : newBlockType === 'fruit' ? 'ចេក' : '-1kg, 4kg'}
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={-100}
+                      max={100}
+                      value={newBlockValue}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setNewBlockValue(val);
+                        setNewBlockName(`${val}kg`);
+                      }}
+                      className={`flex-1 px-2.5 py-1.5 rounded-lg border text-xs font-bold ${
+                        isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-[#CBD5E1] text-black'
+                      }`}
+                    />
+                    <span className="text-xs font-black px-2.5 py-1.5 bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40 rounded-lg">
+                      {newBlockValue}kg
+                    </span>
+                  </div>
                 </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex flex-col">
+                    <label className="text-[10px] text-[#64748B] dark:text-[#94A3B8] font-bold">
+                      {newBlockType === 'variable' ? 'ឈ្មោះអថេរ' : 'ឈ្មោះផ្លែឈើ'}
+                    </label>
+                    <input
+                      type="text"
+                      value={newBlockName}
+                      onChange={(e) => setNewBlockName(e.target.value)}
+                      maxLength={8}
+                      className={`px-2 py-1.5 rounded-lg border text-xs font-bold ${
+                        isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-[#CBD5E1] text-black'
+                      }`}
+                      placeholder={newBlockType === 'variable' ? 'y, z, a' : 'ចេក'}
+                    />
+                  </div>
 
-                <div className="flex-1 flex flex-col">
-                  <label className="text-[10px] text-[#64748B] dark:text-[#94A3B8] font-bold">
-                    ទម្ងន់ kg (វិជ្ជមាន / អវិជ្ជមាន)
-                  </label>
-                  <input
-                    type="number"
-                    min={-100}
-                    max={100}
-                    value={newBlockValue}
-                    onChange={(e) => setNewBlockValue(parseInt(e.target.value) || 0)}
-                    className={`px-2 py-1.5 rounded-lg border text-xs font-bold ${
-                      isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-[#CBD5E1] text-black'
-                    }`}
-                  />
+                  <div className="flex-1 flex flex-col">
+                    <label className="text-[10px] text-[#64748B] dark:text-[#94A3B8] font-bold">
+                      ទម្ងន់ kg (វិជ្ជមាន / អវិជ្ជមាន)
+                    </label>
+                    <input
+                      type="number"
+                      min={-100}
+                      max={100}
+                      value={newBlockValue}
+                      onChange={(e) => setNewBlockValue(parseInt(e.target.value) || 0)}
+                      className={`px-2 py-1.5 rounded-lg border text-xs font-bold ${
+                        isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-[#CBD5E1] text-black'
+                      }`}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               <button
                 type="submit"
@@ -663,6 +776,8 @@ export function App() {
                     className={`group relative shrink-0 p-2 rounded-xl border flex items-center gap-2 transition shadow-xs select-none ${
                       b.type === 'variable'
                         ? isDark ? 'bg-[#0284C7]/20 border-[#0284C7]/50' : 'bg-sky-50 border-sky-300'
+                        : b.type === 'fruit'
+                        ? isDark ? 'bg-amber-950/30 border-amber-500/40' : 'bg-amber-50 border-amber-300'
                         : isDark ? 'bg-[#10B981]/20 border-[#10B981]/50' : 'bg-emerald-50 border-emerald-300'
                     }`}
                   >
@@ -683,7 +798,7 @@ export function App() {
                           setActiveWeight(b.value);
                           startDrag('item', e.clientX, e.clientY, b.value, undefined, {
                             id: b.id,
-                            name: b.name,
+                            name: `${b.value}kg`,
                             value: b.value,
                           });
                         }
@@ -703,12 +818,12 @@ export function App() {
                           setActiveWeight(b.value);
                           startDrag('item', e.touches[0].clientX, e.touches[0].clientY, b.value, undefined, {
                             id: b.id,
-                            name: b.name,
+                            name: `${b.value}kg`,
                             value: b.value,
                           });
                         }
                       }}
-                      className="flex items-center gap-2 cursor-grab active:cursor-grabbing p-1"
+                      className="flex items-center gap-1.5 cursor-grab active:cursor-grabbing p-1"
                       title="ចុចអូស (Drag) ទៅដាក់លើថាសឆ្វេង ឬស្តាំ"
                     >
                       {b.type === 'variable' ? (
@@ -717,14 +832,48 @@ export function App() {
                         </div>
                       ) : b.type === 'fruit' ? (
                         <div className="w-9 h-9 rounded-lg bg-[#FEF3C7] dark:bg-[#78350F]/60 border-2 border-amber-400 flex flex-col items-center justify-center text-xs font-black shadow-xs">
-                          <span>{b.fruitType === 'apple' ? '🍎' : b.fruitType === 'banana' ? '🍌' : '🥭'}</span>
+                          <span>{fruitEmoji(b.fruitType)}</span>
                           <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 leading-none">{b.value}k</span>
                         </div>
                       ) : (
                         <div className="w-9 h-9 rounded-lg bg-[#334155] border-2 border-amber-400 flex items-center justify-center text-amber-300 font-black text-xs shadow-xs">
-                          {b.name}
+                          {b.value}kg
                         </div>
                       )}
+                    </div>
+
+                    {/* Quick inline Stepper to configure weight/fruit value directly! */}
+                    <div className="flex flex-col items-center gap-0.5">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateBlockValue(b.id, -1);
+                          }}
+                          className="w-5 h-5 rounded flex items-center justify-center font-black text-[11px] border bg-black/5 dark:bg-white/10 hover:bg-black/10 active:scale-90"
+                          title="បន្ថយតម្លៃ"
+                        >
+                          -
+                        </button>
+                        <span className="text-[11px] font-black min-w-6 text-center font-['Outfit',sans-serif]">
+                          {b.value}{b.type !== 'variable' ? 'kg' : ''}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateBlockValue(b.id, 1);
+                          }}
+                          className="w-5 h-5 rounded flex items-center justify-center font-black text-[11px] border bg-black/5 dark:bg-white/10 hover:bg-black/10 active:scale-90"
+                          title="បង្កើនតម្លៃ"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="text-[9px] text-[#94A3B8] font-bold truncate max-w-16 text-center">
+                        {b.type === 'weight' ? `${b.value}kg` : b.name}
+                      </span>
                     </div>
 
                     {/* Delete button (for custom created items) */}
@@ -764,31 +913,7 @@ export function App() {
               }}
               className="w-full py-2.5 bg-[#EF4444] text-white rounded-xl text-xs font-bold"
             >
-              កំណត់លំហាត់ឡើងវិញ
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Solved Celebration Dialog */}
-      {isSolvedCelebration && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`border rounded-3xl max-w-sm w-full p-6 shadow-2xl flex flex-col items-center gap-4 text-center ${
-            isDark ? 'bg-[#10172A] border-[#10B981] text-[#F8FAFC]' : 'bg-[#FFFFFF] border-[#10B981] text-[#0F172A]'
-          }`}>
-            <h2 className="text-xl font-black text-[#10B981]">អបអរសាទរ!</h2>
-            <p className="text-xs text-[#94A3B8]">អ្នកបានដោះស្រាយសមីការជោគជ័យ!</p>
-            <div className="text-5xl font-black text-[#10B981] font-['Outfit',sans-serif]">
-              x = {equation.xValue}
-            </div>
-            <button
-              onClick={() => {
-                dismissCelebration();
-                nextProblem();
-              }}
-              className="w-full py-3 bg-[#10B981] text-white rounded-xl text-xs font-black shadow-lg"
-            >
-              លំហាត់បន្ទាប់
+              ជម្រះជញ្ជីង (Clear Scale)
             </button>
           </div>
         </div>
