@@ -827,53 +827,38 @@ export function App() {
                       title="ចុចអូស (Drag) ទៅដាក់លើថាសឆ្វេង ឬស្តាំ"
                     >
                       {b.type === 'variable' ? (
-                        <div className="w-9 h-9 rounded-lg bg-[#0284C7] border-2 border-amber-300 flex items-center justify-center text-white font-black text-sm shadow-xs">
+                        <div className="w-10 h-10 rounded-xl bg-[#0284C7] border-2 border-amber-300 flex items-center justify-center text-white font-black text-base shadow-xs">
                           {b.name}
                         </div>
                       ) : b.type === 'fruit' ? (
-                        <div className="w-9 h-9 rounded-lg bg-[#FEF3C7] dark:bg-[#78350F]/60 border-2 border-amber-400 flex flex-col items-center justify-center text-xs font-black shadow-xs">
+                        <div className="w-10 h-10 rounded-xl bg-[#FEF3C7] dark:bg-[#78350F]/60 border-2 border-amber-400 flex flex-col items-center justify-center text-sm font-black shadow-xs">
                           <span>{fruitEmoji(b.fruitType)}</span>
-                          <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 leading-none">{b.value}k</span>
                         </div>
                       ) : (
-                        <div className="w-9 h-9 rounded-lg bg-[#334155] border-2 border-amber-400 flex items-center justify-center text-amber-300 font-black text-xs shadow-xs">
+                        <div className="w-10 h-10 rounded-xl bg-[#334155] border-2 border-amber-400 flex items-center justify-center text-amber-300 font-black text-xs shadow-xs">
                           {b.value}kg
                         </div>
                       )}
                     </div>
 
-                    {/* Quick inline Stepper to configure weight/fruit value directly! */}
-                    <div className="flex flex-col items-center gap-0.5">
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpdateBlockValue(b.id, -1);
-                          }}
-                          className="w-5 h-5 rounded flex items-center justify-center font-black text-[11px] border bg-black/5 dark:bg-white/10 hover:bg-black/10 active:scale-90"
-                          title="បន្ថយតម្លៃ"
-                        >
-                          -
-                        </button>
-                        <span className="text-[11px] font-black min-w-6 text-center font-['Outfit',sans-serif]">
-                          {b.value}{b.type !== 'variable' ? 'kg' : ''}
+                    {/* Block label (no - + buttons, and variable value is strictly HIDDEN) */}
+                    <div className="flex flex-col pr-1 select-none">
+                      {b.type === 'variable' ? (
+                        <span className="text-xs font-black text-[#0284C7] dark:text-[#38BDF8] px-1">
+                          {b.name}
                         </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUpdateBlockValue(b.id, 1);
-                          }}
-                          className="w-5 h-5 rounded flex items-center justify-center font-black text-[11px] border bg-black/5 dark:bg-white/10 hover:bg-black/10 active:scale-90"
-                          title="បង្កើនតម្លៃ"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <span className="text-[9px] text-[#94A3B8] font-bold truncate max-w-16 text-center">
-                        {b.type === 'weight' ? `${b.value}kg` : b.name}
-                      </span>
+                      ) : b.type === 'fruit' ? (
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold leading-tight">{b.name}</span>
+                          <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 font-['Outfit',sans-serif]">
+                            {b.value}kg
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-black text-[#10B981] font-['Outfit',sans-serif] px-1">
+                          {b.value}kg
+                        </span>
+                      )}
                     </div>
 
                     {/* Delete button (for custom created items) */}
