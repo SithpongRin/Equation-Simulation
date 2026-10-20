@@ -86,6 +86,8 @@ export const WeightBlock: React.FC<WeightBlockProps> = ({
 
   // ================= GHIBLI CAST-IRON METAL CUBE / BLOCK (1kg) =================
   // Cubical block matching the box shape, dark slate-iron metallic texture with brass corners and prominent "1kg" badge
+  const isNegative = weight < 0;
+
   return (
     <group
       position={position}
@@ -100,7 +102,7 @@ export const WeightBlock: React.FC<WeightBlockProps> = ({
       <mesh position={[0, 0.32, 0]} castShadow receiveShadow>
         <boxGeometry args={[0.6, 0.6, 0.6]} />
         <meshStandardMaterial
-          color={isHovered ? '#38BDF8' : '#334155'} // Clean Slate Iron
+          color={isHovered ? '#38BDF8' : isNegative ? '#991B1B' : '#334155'} // Red-crimson for negative weight, slate for positive
           roughness={0.4}
           metalness={0.75}
         />
@@ -109,35 +111,35 @@ export const WeightBlock: React.FC<WeightBlockProps> = ({
       {/* Brass Edge Brackets / Corner Caps for Ghibli aesthetic */}
       <mesh position={[0, 0.32, 0]}>
         <boxGeometry args={[0.62, 0.55, 0.55]} />
-        <meshStandardMaterial color="#D97706" metalness={0.85} roughness={0.25} />
+        <meshStandardMaterial color={isNegative ? '#DC2626' : '#D97706'} metalness={0.85} roughness={0.25} />
       </mesh>
       <mesh position={[0, 0.32, 0]}>
         <boxGeometry args={[0.55, 0.62, 0.55]} />
-        <meshStandardMaterial color="#D97706" metalness={0.85} roughness={0.25} />
+        <meshStandardMaterial color={isNegative ? '#DC2626' : '#D97706'} metalness={0.85} roughness={0.25} />
       </mesh>
       <mesh position={[0, 0.32, 0]}>
         <boxGeometry args={[0.55, 0.55, 0.62]} />
-        <meshStandardMaterial color="#D97706" metalness={0.85} roughness={0.25} />
+        <meshStandardMaterial color={isNegative ? '#DC2626' : '#D97706'} metalness={0.85} roughness={0.25} />
       </mesh>
 
-      {/* Front Face Stamped Number Plate (e.g. "1kg") */}
+      {/* Front Face Stamped Number Plate (e.g. "1kg" or "-1kg") */}
       <group position={[0, 0.32, 0.315]}>
         {/* Soft Brass / Ivory engraved plaque */}
         <mesh>
           <planeGeometry args={[0.42, 0.32]} />
-          <meshStandardMaterial color="#FEF3C7" roughness={0.3} metalness={0.1} />
+          <meshStandardMaterial color={isNegative ? '#FEE2E2' : '#FEF3C7'} roughness={0.3} metalness={0.1} />
         </mesh>
         {/* Brass Border Rim */}
         <mesh position={[0, 0, -0.003]}>
           <planeGeometry args={[0.45, 0.35]} />
-          <meshStandardMaterial color="#D97706" metalness={0.85} roughness={0.2} />
+          <meshStandardMaterial color={isNegative ? '#DC2626' : '#D97706'} metalness={0.85} roughness={0.2} />
         </mesh>
 
         {/* Clear Crisp Text: "1kg" or "{weight}kg" or custom label */}
         <Text
           position={[0, 0, 0.02]}
           fontSize={0.15}
-          color="#0F172A"
+          color={isNegative ? '#991B1B' : '#0F172A'}
           anchorX="center"
           anchorY="middle"
           fontWeight="bold"

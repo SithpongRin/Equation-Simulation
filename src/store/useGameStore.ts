@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EquationState, BalanceMetrics } from '../math/equationModel';
+import type { EquationState, BalanceMetrics, CustomWeightItem } from '../math/equationModel';
 import { calculateBalance } from '../math/equationModel';
 import { generateProblem } from '../math/problemGenerator';
 import { modifyPan, applyOperationBothSides } from '../math/operations';
@@ -25,6 +25,7 @@ interface GameState {
   draggedType: 'bag' | 'item' | 'balloon' | null;
   draggedWeight?: number;
   draggedVariable?: { name: string; value: number };
+  draggedCustomItem?: CustomWeightItem;
   selectedTool: 'bag' | 'item' | 'balloon' | null; // For click-to-place accessibility
 
   // Solved & celebration
@@ -53,13 +54,15 @@ interface GameState {
     pan: 'left' | 'right',
     type: 'bag' | 'item' | 'balloon',
     weightValue?: number,
-    variableItem?: { name: string; value: number }
+    variableItem?: { name: string; value: number },
+    customItem?: CustomWeightItem
   ) => void;
   removeFromPan: (
     pan: 'left' | 'right',
     type: 'bag' | 'item' | 'balloon',
     weightValue?: number,
-    variableItem?: { name: string; value: number }
+    variableItem?: { name: string; value: number },
+    customItem?: CustomWeightItem
   ) => void;
   applyOperation: (op: 'addItems' | 'subItems' | 'divide' | 'subBags', amount: number) => void;
   
@@ -72,7 +75,8 @@ interface GameState {
   setDraggedType: (
     type: 'bag' | 'item' | 'balloon' | null,
     weightValue?: number,
-    variableItem?: { name: string; value: number }
+    variableItem?: { name: string; value: number },
+    customItem?: CustomWeightItem
   ) => void;
   setSelectedTool: (tool: 'bag' | 'item' | 'balloon' | null) => void;
   advanceRevealCount: () => void;
@@ -143,12 +147,17 @@ function persistData(data: Partial<GameState>) {
   }
 }
 
-// Initial problem
-const initialProblem = generateProblem(1);
+// Clean Blank Initial Balance (Free experimentation without forced textbook problems)
+const blankEquation: EquationState = {
+  xValue: 5,
+  itemWeight: 1,
+  left: { bags: 0, items: 0, balloons: 0 },
+  right: { bags: 0, items: 0, balloons: 0 },
+};
 
 export const useGameStore = create<GameState>((set, get) => {
   const persisted = loadPersistedData();
-  const initialEq = initialProblem.equation;
+  const initialEq = blankEquation;
   const initialBalance = calculateBalance(initialEq);
 
   return {
@@ -156,9 +165,7 @@ export const useGameStore = create<GameState>((set, get) => {
     equation: initialEq,
     initialEquation: initialEq,
     balanceMetrics: initialBalance,
-    storyKm: initialProblem.storyKm,
     stepsCount: 0,
-
     history: [initialEq],
     historyIndex: 0,
 
@@ -221,10 +228,16 @@ export const useGameStore = create<GameState>((set, get) => {
     },
 
     resetCurrentProblem: () => {
-      const initial = get().initialEquation;
+      const initial: EquationState = {
+        xValue: 5,
+        itemWeight: 1,
+        left: { bags: 0, items: 0, balloons: 0 },
+        right: { bags: 0, items: 0, balloons: 0 },
+      };
       const balance = calculateBalance(initial);
       set({
         equation: initial,
+        initialEquation: initial,
         balanceMetrics: balance,
         stepsCount: 0,
         history: [initial],
@@ -234,9 +247,9 @@ export const useGameStore = create<GameState>((set, get) => {
       });
     },
 
-    addToPan: (pan, type, weightValue, variableItem) => {
+    addToPan: (pan, type, weightValue, variableItem, customItem) => {
       const { equation, history, historyIndex, stepsCount } = get();
-      const nextEq = modifyPan(equation, pan, type, 1, weightValue, variableItem);
+      const nextEq = modifyPan(equation, pan, type, 1, weightValue, variableItem, customItem);
       const nextBalance = calculateBalance(nextEq);
 
       const nextHistory = [...history.slice(0, historyIndex + 1), nextEq];
@@ -266,7 +279,7 @@ export const useGameStore = create<GameState>((set, get) => {
       });
     },
 
-    removeFromPan: (pan, type, weightValue, variableItem) => {
+    removeFromPan: (pan, type, weightValue, variableItem, customItem) => {
       const { equation, history, historyIndex, stepsCount } = get();
       const panObj = equation[pan];
       const count = type === 'bag'
@@ -277,7 +290,7 @@ export const useGameStore = create<GameState>((set, get) => {
       if (count <= 0) {
         return;
       }
-      const nextEq = modifyPan(equation, pan, type, -1, weightValue, variableItem);
+      const nextEq = modifyPan(equation, pan, type, -1, weightValue, variableItem, customItem);
       const nextBalance = calculateBalance(nextEq);
       const nextHistory = [...history.slice(0, historyIndex + 1), nextEq];
 
@@ -366,8 +379,8 @@ export const useGameStore = create<GameState>((set, get) => {
     },
 
     setHoveredPan: (pan) => set({ hoveredPan: pan }),
-    setDraggedType: (type, weightValue, variableItem) =>
-      set({ draggedType: type, draggedWeight: weightValue, draggedVariable: variableItem }),
+    setDraggedType: (type, weightValue, variableItem, customItem) =>
+      set({ draggedType: type, draggedWeight: weightValue, draggedVariable: variableItem, draggedCustomItem: customItem }),
     setSelectedTool: (tool) => set({ selectedTool: tool }),
     advanceRevealCount: () => set((s) => ({ revealedItemCount: s.revealedItemCount + 1 })),
     dismissCelebration: () => set({ isSolvedCelebration: false }),

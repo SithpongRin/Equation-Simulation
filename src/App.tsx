@@ -20,7 +20,6 @@ import { Scene } from './three/Scene';
 import type { SceneHandle } from './three/Scene';
 import { useGameStore } from './store/useGameStore';
 import { formatSideExpression } from './math/equationModel';
-import { EquationActionBar } from './ui/EquationActionBar';
 import confetti from 'canvas-confetti';
 
 export function App() {
@@ -33,7 +32,6 @@ export function App() {
   const toggleColorMode = useGameStore((s) => s.toggleColorMode);
   const nextProblem = useGameStore((s) => s.nextProblem);
   const resetCurrentProblem = useGameStore((s) => s.resetCurrentProblem);
-  const addToPan = useGameStore((s) => s.addToPan);
   const setXValue = useGameStore((s) => s.setXValue);
   const setItemWeight = useGameStore((s) => s.setItemWeight);
   const autoBalance = useGameStore((s) => s.autoBalance);
@@ -60,23 +58,26 @@ export function App() {
   const [activeWeight, setActiveWeight] = useState<number>(1);
   const WEIGHT_PRESETS = [1, 2, 5, 10];
 
-  // Custom User-Created Blocks & Variables ("អ្នកប្រើប្រាស់អាចបង្កើត Box Variable ដោយខ្លួនឯង និង Box value ដោយខ្លួនឯង")
+  // Custom User-Created Blocks & Variables
   interface CustomBlock {
     id: string;
-    type: 'variable' | 'weight';
-    name: string; // e.g. "x", "y", "a" or "2kg", "3kg"
-    value: number; // numeric value for balance calculation
+    type: 'variable' | 'weight' | 'fruit';
+    name: string; // e.g. "x", "y", "a" or "2kg", "ចេក", "ប៉ោម", "ស្វាយ"
+    value: number; // numeric value for balance calculation (can be negative!)
+    fruitType?: 'apple' | 'banana' | 'mango';
     color?: string;
   }
 
-  const CUSTOM_BLOCKS_KEY = 'equation_lab_custom_blocks_v1';
+  const CUSTOM_BLOCKS_KEY = 'equation_lab_custom_blocks_v2';
 
   const defaultBlocks: CustomBlock[] = [
     { id: 'var-x', type: 'variable', name: 'x', value: 5 },
     { id: 'w-1', type: 'weight', name: '1kg', value: 1 },
     { id: 'w-2', type: 'weight', name: '2kg', value: 2 },
     { id: 'w-3', type: 'weight', name: '3kg', value: 3 },
-    { id: 'w-5', type: 'weight', name: '5kg', value: 5 },
+    { id: 'fruit-apple', type: 'fruit', name: 'ប៉ោម', value: 2, fruitType: 'apple' },
+    { id: 'fruit-banana', type: 'fruit', name: 'ចេក', value: 1, fruitType: 'banana' },
+    { id: 'fruit-mango', type: 'fruit', name: 'ស្វាយ', value: 3, fruitType: 'mango' },
   ];
 
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>(() => {
@@ -100,10 +101,11 @@ export function App() {
     }
   }, [customBlocks]);
 
-  // Form states for creating custom variable / weight blocks
-  const [newBlockType, setNewBlockType] = useState<'variable' | 'weight'>('variable');
+  // Form states for creating custom variable / weight / fruit blocks
+  const [newBlockType, setNewBlockType] = useState<'variable' | 'weight' | 'fruit'>('variable');
   const [newBlockName, setNewBlockName] = useState<string>('y');
   const [newBlockValue, setNewBlockValue] = useState<number>(3);
+  const [newFruitType, setNewFruitType] = useState<'apple' | 'banana' | 'mango'>('apple');
 
   const handleCreateBlock = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,13 +115,17 @@ export function App() {
       id: `custom-${Date.now()}`,
       type: newBlockType,
       name: trimmed,
-      value: Math.max(1, newBlockValue),
+      value: newBlockValue, // can be positive or negative e.g. -1, 4
+      fruitType: newBlockType === 'fruit' ? newFruitType : undefined,
     };
     setCustomBlocks((prev) => [...prev, block]);
     if (newBlockType === 'variable') {
       setNewBlockName(String.fromCharCode(trimmed.charCodeAt(0) + 1));
+    } else if (newBlockType === 'weight') {
+      setNewBlockName(`${newBlockValue >= 0 ? newBlockValue + 1 : newBlockValue}kg`);
     } else {
-      setNewBlockName(`${Math.max(1, newBlockValue + 1)}kg`);
+      setNewBlockName(newFruitType === 'apple' ? 'ចេក' : newFruitType === 'banana' ? 'ស្វាយ' : 'ប៉ោម');
+      setNewFruitType(newFruitType === 'apple' ? 'banana' : newFruitType === 'banana' ? 'mango' : 'apple');
     }
   };
 
@@ -185,9 +191,10 @@ export function App() {
     clientX: number,
     clientY: number,
     weightValue?: number,
-    variableItem?: { name: string; value: number }
+    variableItem?: { name: string; value: number },
+    customItem?: any
   ) => {
-    setDraggedType(type, weightValue, variableItem);
+    setDraggedType(type, weightValue, variableItem, customItem);
     setDragPointer({ x: clientX, y: clientY });
   };
 
@@ -331,9 +338,6 @@ export function App() {
             </button>
           </div>
 
-          {/* Core Equation Operations Bar (Apply to Both Sides) */}
-          <EquationActionBar onNextProblem={nextProblem} />
-
           {/* Draggable Items Box: Clean Ghibli Style Drag Tray */}
           <div className="flex flex-col gap-3 w-full">
             <span className="text-xs font-black text-[#64748B] dark:text-[#94A3B8]">
@@ -347,7 +351,7 @@ export function App() {
               <div
                 onMouseDown={(e) => startDrag('bag', e.clientX, e.clientY)}
                 onTouchStart={(e) => startDrag('bag', e.touches[0].clientX, e.touches[0].clientY)}
-                className="flex items-center gap-2 cursor-grab active:cursor-grabbing p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition"
+                className="flex items-center gap-2 cursor-grab active:cursor-grabbing p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition flex-1"
                 title="អូសដាក់លើថាស"
               >
                 <div className="w-10 h-10 rounded-xl bg-[#0284C7] border-2 border-amber-300 flex items-center justify-center text-white font-black text-lg shadow-sm">
@@ -357,23 +361,6 @@ export function App() {
                   <span className="text-xs font-black text-[#0284C7] dark:text-[#38BDF8]">ប្រអប់ (x)</span>
                   <span className="text-[10px] text-[#94A3B8]">អូសដាក់លើថាស</span>
                 </div>
-              </div>
-
-              <div className="flex gap-1">
-                <button
-                  onClick={() => addToPan('left', 'bag')}
-                  className="px-2.5 py-1.5 bg-[#0284C7] text-white rounded-lg text-xs font-bold active:scale-95 transition"
-                  title="ថែមលើឆ្វេង"
-                >
-                  + ឆ្វេង
-                </button>
-                <button
-                  onClick={() => addToPan('right', 'bag')}
-                  className="px-2.5 py-1.5 bg-[#0284C7] text-white rounded-lg text-xs font-bold active:scale-95 transition"
-                  title="ថែមលើស្តាំ"
-                >
-                  + ស្តាំ
-                </button>
               </div>
             </div>
 
@@ -421,27 +408,6 @@ export function App() {
                     <span className="text-[10px] text-[#94A3B8]">អូសដាក់លើថាស</span>
                   </div>
                 </div>
-
-                <div className="flex gap-1 shrink-0">
-                  <button
-                    onClick={() => {
-                      addToPan('left', 'item', activeWeight);
-                    }}
-                    className="px-2.5 py-1.5 bg-[#10B981] text-white rounded-lg text-xs font-bold active:scale-95 transition"
-                    title={`ថែមដុំដែក ${activeWeight}kg លើថាសឆ្វេង`}
-                  >
-                    + ឆ្វេង
-                  </button>
-                  <button
-                    onClick={() => {
-                      addToPan('right', 'item', activeWeight);
-                    }}
-                    className="px-2.5 py-1.5 bg-[#10B981] text-white rounded-lg text-xs font-bold active:scale-95 transition"
-                    title={`ថែមដុំដែក ${activeWeight}kg លើថាសស្តាំ`}
-                  >
-                    + ស្តាំ
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -487,35 +453,74 @@ export function App() {
                 >
                   ដុំទម្ងន់
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewBlockType('fruit');
+                    setNewBlockName('ចេក');
+                    setNewBlockValue(2);
+                    setNewFruitType('banana');
+                  }}
+                  className={`flex-1 py-1 rounded-lg text-xs font-bold border transition ${
+                    newBlockType === 'fruit'
+                      ? 'bg-[#F59E0B] text-white border-[#F59E0B]'
+                      : isDark ? 'bg-[#334155] text-[#94A3B8] border-transparent' : 'bg-[#E2E8F0] text-[#64748B] border-transparent'
+                  }`}
+                >
+                  ផ្លែឈើ
+                </button>
               </div>
+
+              {newBlockType === 'fruit' && (
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] text-[#64748B] dark:text-[#94A3B8] font-bold">
+                    ប្រភេទផ្លែឈើ៖
+                  </label>
+                  <select
+                    value={newFruitType}
+                    onChange={(e) => {
+                      const ft = e.target.value as 'apple' | 'banana' | 'mango';
+                      setNewFruitType(ft);
+                      setNewBlockName(ft === 'apple' ? 'ប៉ោម' : ft === 'banana' ? 'ចេក' : 'ស្វាយ');
+                    }}
+                    className={`px-2 py-1 rounded-lg border text-xs font-bold flex-1 ${
+                      isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-[#CBD5E1] text-black'
+                    }`}
+                  >
+                    <option value="apple">ប៉ោម (Apple)</option>
+                    <option value="banana">ចេក (Banana)</option>
+                    <option value="mango">ស្វាយ (Mango)</option>
+                  </select>
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <div className="flex-1 flex flex-col">
                   <label className="text-[10px] text-[#64748B] dark:text-[#94A3B8] font-bold">
-                    {newBlockType === 'variable' ? 'ឈ្មោះអថេរ' : 'ស្លាកទម្ងន់'}
+                    {newBlockType === 'variable' ? 'ឈ្មោះអថេរ' : newBlockType === 'fruit' ? 'ឈ្មោះផ្លែឈើ' : 'ស្លាកទម្ងន់'}
                   </label>
                   <input
                     type="text"
                     value={newBlockName}
                     onChange={(e) => setNewBlockName(e.target.value)}
-                    maxLength={5}
+                    maxLength={6}
                     className={`px-2 py-1.5 rounded-lg border text-xs font-bold ${
                       isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-[#CBD5E1] text-black'
                     }`}
-                    placeholder={newBlockType === 'variable' ? 'y, z, a' : '3kg, 7kg'}
+                    placeholder={newBlockType === 'variable' ? 'y, z, a' : newBlockType === 'fruit' ? 'ចេក' : '-1kg, 4kg'}
                   />
                 </div>
 
                 <div className="flex-1 flex flex-col">
                   <label className="text-[10px] text-[#64748B] dark:text-[#94A3B8] font-bold">
-                    ទម្ងន់ (kg)
+                    ទម្ងន់ kg (វិជ្ជមាន / អវិជ្ជមាន)
                   </label>
                   <input
                     type="number"
-                    min={1}
+                    min={-100}
                     max={100}
                     value={newBlockValue}
-                    onChange={(e) => setNewBlockValue(parseInt(e.target.value) || 1)}
+                    onChange={(e) => setNewBlockValue(parseInt(e.target.value) || 0)}
                     className={`px-2 py-1.5 rounded-lg border text-xs font-bold ${
                       isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-[#CBD5E1] text-black'
                     }`}
@@ -666,75 +671,60 @@ export function App() {
                       onMouseDown={(e) => {
                         if (b.type === 'variable') {
                           startDrag('bag', e.clientX, e.clientY, undefined, { name: b.name, value: b.value });
+                        } else if (b.type === 'fruit') {
+                          setActiveWeight(b.value);
+                          startDrag('item', e.clientX, e.clientY, b.value, undefined, {
+                            id: b.id,
+                            name: b.name,
+                            value: b.value,
+                            fruitType: b.fruitType,
+                          });
                         } else {
                           setActiveWeight(b.value);
-                          startDrag('item', e.clientX, e.clientY, b.value);
+                          startDrag('item', e.clientX, e.clientY, b.value, undefined, {
+                            id: b.id,
+                            name: b.name,
+                            value: b.value,
+                          });
                         }
                       }}
                       onTouchStart={(e) => {
                         if (b.type === 'variable') {
                           startDrag('bag', e.touches[0].clientX, e.touches[0].clientY, undefined, { name: b.name, value: b.value });
+                        } else if (b.type === 'fruit') {
+                          setActiveWeight(b.value);
+                          startDrag('item', e.touches[0].clientX, e.touches[0].clientY, b.value, undefined, {
+                            id: b.id,
+                            name: b.name,
+                            value: b.value,
+                            fruitType: b.fruitType,
+                          });
                         } else {
                           setActiveWeight(b.value);
-                          startDrag('item', e.touches[0].clientX, e.touches[0].clientY, b.value);
+                          startDrag('item', e.touches[0].clientX, e.touches[0].clientY, b.value, undefined, {
+                            id: b.id,
+                            name: b.name,
+                            value: b.value,
+                          });
                         }
                       }}
-                      className="flex items-center gap-2 cursor-grab active:cursor-grabbing"
+                      className="flex items-center gap-2 cursor-grab active:cursor-grabbing p-1"
                       title="ចុចអូស (Drag) ទៅដាក់លើថាសឆ្វេង ឬស្តាំ"
                     >
                       {b.type === 'variable' ? (
                         <div className="w-9 h-9 rounded-lg bg-[#0284C7] border-2 border-amber-300 flex items-center justify-center text-white font-black text-sm shadow-xs">
                           {b.name}
                         </div>
+                      ) : b.type === 'fruit' ? (
+                        <div className="w-9 h-9 rounded-lg bg-[#FEF3C7] dark:bg-[#78350F]/60 border-2 border-amber-400 flex flex-col items-center justify-center text-xs font-black shadow-xs">
+                          <span>{b.fruitType === 'apple' ? '🍎' : b.fruitType === 'banana' ? '🍌' : '🥭'}</span>
+                          <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 leading-none">{b.value}k</span>
+                        </div>
                       ) : (
                         <div className="w-9 h-9 rounded-lg bg-[#334155] border-2 border-amber-400 flex items-center justify-center text-amber-300 font-black text-xs shadow-xs">
                           {b.name}
                         </div>
                       )}
-                      <div className="flex flex-col text-left">
-                        <span className="text-[11px] font-black text-[#0F172A] dark:text-[#F8FAFC]">
-                          {b.name}
-                        </span>
-                        {b.type === 'weight' && (
-                          <span className="text-[9px] text-[#64748B] dark:text-[#94A3B8]">
-                            ={b.value}kg
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Quick + Left / + Right buttons */}
-                    <div className="flex items-center gap-1 pl-1">
-                      <button
-                        onClick={() => {
-                          if (b.type === 'variable') {
-                            addToPan('left', 'bag', undefined, { name: b.name, value: b.value });
-                          } else {
-                            addToPan('left', 'item', b.value);
-                          }
-                        }}
-                        className={`px-1.5 py-1 rounded text-[10px] font-bold text-white transition active:scale-90 ${
-                          b.type === 'variable' ? 'bg-[#0284C7]' : 'bg-[#10B981]'
-                        }`}
-                        title="ថែមលើថាសឆ្វេង"
-                      >
-                        +L
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (b.type === 'variable') {
-                            addToPan('right', 'bag', undefined, { name: b.name, value: b.value });
-                          } else {
-                            addToPan('right', 'item', b.value);
-                          }
-                        }}
-                        className={`px-1.5 py-1 rounded text-[10px] font-bold text-white transition active:scale-90 ${
-                          b.type === 'variable' ? 'bg-[#0284C7]' : 'bg-[#10B981]'
-                        }`}
-                        title="ថែមលើថាសស្តាំ"
-                      >
-                        +R
-                      </button>
                     </div>
 
                     {/* Delete button (for custom created items) */}

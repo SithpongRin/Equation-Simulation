@@ -4,11 +4,18 @@ export interface CustomVariableItem {
   value: number; // numeric value (kg)
 }
 
+export interface CustomWeightItem {
+  id?: string;
+  name: string; // e.g. "1kg", "ប៉ោម", "ចេក", "ស្វាយ"
+  value: number; // numeric value (kg, can be negative)
+  fruitType?: 'apple' | 'banana' | 'mango';
+}
+
 export interface PanState {
   bags: number;     // number of 'x' mystery bags
   items: number;    // number of positive single items
   balloons: number; // number of helium balloons
-  customWeights?: number[]; // list of individual weight values on this pan, e.g. [2, 3, 4]
+  customWeights?: (number | CustomWeightItem)[]; // list of individual weight values or fruit items on this pan
   customVariables?: CustomVariableItem[]; // list of variables on this pan, e.g. [{name: "y", value: 3}]
 }
 
@@ -29,17 +36,21 @@ export interface BalanceMetrics {
   isolatedSide: 'left' | 'right' | null;
 }
 
+export function getWeightNumericValue(item: number | CustomWeightItem): number {
+  return typeof item === 'number' ? item : item.value;
+}
+
 /**
  * Calculate the effective weight of a pan given the xValue and itemWeight
  */
 export function calculatePanWeight(pan: PanState, xValue: number, itemWeight: number = 1): number {
   let customSum = 0;
   if (pan.customWeights && pan.customWeights.length > 0) {
-    customSum = pan.customWeights.reduce((a, b) => a + b, 0);
+    customSum = pan.customWeights.reduce((a: number, b) => a + getWeightNumericValue(b), 0);
   }
   let varSum = pan.bags * xValue;
   if (pan.customVariables && pan.customVariables.length > 0) {
-    varSum += pan.customVariables.reduce((a, b) => a + b.value, 0);
+    varSum += pan.customVariables.reduce((a: number, b) => a + b.value, 0);
   }
   return varSum + pan.items * itemWeight + customSum - pan.balloons * itemWeight;
 }
@@ -67,8 +78,8 @@ export function calculateBalance(state: EquationState): BalanceMetrics {
   let isolatedSide: 'left' | 'right' | null = null;
 
   if (isBalanced) {
-    const leftCustom = (state.left.customWeights || []).reduce((a, b) => a + b, 0);
-    const rightCustom = (state.right.customWeights || []).reduce((a, b) => a + b, 0);
+    const leftCustom = (state.left.customWeights || []).reduce((a: number, b) => a + getWeightNumericValue(b), 0);
+    const rightCustom = (state.right.customWeights || []).reduce((a: number, b) => a + getWeightNumericValue(b), 0);
     const leftTotalItems = state.left.items * itemWeight + leftCustom;
     const rightTotalItems = state.right.items * itemWeight + rightCustom;
 
@@ -115,14 +126,22 @@ export function formatSideExpression(pan: PanState, itemWeight: number = 1): str
     }
   }
 
-  const customSum = (pan.customWeights || []).reduce((a, b) => a + b, 0);
+  const customSum = (pan.customWeights || []).reduce((a: number, b) => a + getWeightNumericValue(b), 0);
   const totalItemVal = pan.items * itemWeight + customSum;
 
-  if (totalItemVal > 0) {
-    if (parts.length > 0) {
-      parts.push(`+ ${totalItemVal}`);
+  if (totalItemVal !== 0) {
+    if (totalItemVal > 0) {
+      if (parts.length > 0) {
+        parts.push(`+ ${totalItemVal}`);
+      } else {
+        parts.push(`${totalItemVal}`);
+      }
     } else {
-      parts.push(`${totalItemVal}`);
+      if (parts.length > 0) {
+        parts.push(`- ${Math.abs(totalItemVal)}`);
+      } else {
+        parts.push(`-${Math.abs(totalItemVal)}`);
+      }
     }
   }
 

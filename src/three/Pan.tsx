@@ -1,11 +1,14 @@
 import React, { useMemo } from 'react';
 import { WeightBlock } from './WeightBlock';
+import { Item } from './Item';
+import type { CustomWeightItem } from '../math/equationModel';
+import { getWeightNumericValue } from '../math/equationModel';
 
 interface PanProps {
   bagsCount: number;
   itemsCount: number;
   itemWeight?: number;
-  customWeights?: number[];
+  customWeights?: (number | CustomWeightItem)[];
   customVariables?: { name: string; value: number }[];
   balloonsCount?: number;
   isHovered: boolean;
@@ -14,7 +17,8 @@ interface PanProps {
   onRemoveItem: (
     type: 'bag' | 'item' | 'balloon',
     weightVal?: number,
-    variableItem?: { name: string; value: number }
+    variableItem?: { name: string; value: number },
+    customItem?: CustomWeightItem
   ) => void;
 }
 
@@ -48,7 +52,7 @@ export const Pan: React.FC<PanProps> = ({
 
   // Combine default weights and customWeights array
   const allWeights = useMemo(() => {
-    const list: number[] = [];
+    const list: (number | CustomWeightItem)[] = [];
     for (let i = 0; i < itemsCount; i++) {
       list.push(itemWeight);
     }
@@ -186,17 +190,29 @@ export const Pan: React.FC<PanProps> = ({
         );
       })}
 
-      {/* Ghibli Metal Weights on this pan */}
+      {/* Ghibli Metal Weights or 3D Fruits on this pan */}
       {itemPositions.map((pos, idx) => {
-        const curWeight = allWeights[idx] ?? itemWeight;
+        const curItem = allWeights[idx] ?? itemWeight;
+        const numVal = getWeightNumericValue(curItem);
+        const isFruit = typeof curItem === 'object' && curItem.fruitType;
+
+        if (isFruit && typeof curItem === 'object') {
+          const fruitIdx = curItem.fruitType === 'apple' ? 0 : curItem.fruitType === 'banana' ? 2 : 1;
+          return (
+            <group key={`fruit-${idx}`} position={pos} onClick={() => onRemoveItem('item', numVal, undefined, curItem)}>
+              <Item position={[0, 0.1, 0]} variantIndex={fruitIdx} scale={2.6} />
+            </group>
+          );
+        }
+
         return (
           <WeightBlock
             key={`weight-${idx}`}
             position={pos}
-            weight={curWeight}
-            label={`${curWeight}kg`}
+            weight={numVal}
+            label={`${numVal}kg`}
             isUnknown={false}
-            onClick={() => onRemoveItem('item', curWeight)}
+            onClick={() => onRemoveItem('item', numVal, undefined, typeof curItem === 'object' ? curItem : undefined)}
           />
         );
       })}

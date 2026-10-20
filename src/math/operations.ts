@@ -1,5 +1,5 @@
-import type { EquationState, PanState } from './equationModel';
-import { calculateBalance } from './equationModel';
+import type { EquationState, PanState, CustomWeightItem } from './equationModel';
+import { calculateBalance, getWeightNumericValue } from './equationModel';
 
 export type PanTarget = 'left' | 'right' | 'both';
 
@@ -17,7 +17,8 @@ export function modifyPan(
   type: 'bag' | 'item' | 'balloon',
   delta: number,
   itemWeightValue?: number,
-  variableItem?: { name: string; value: number }
+  variableItem?: { name: string; value: number },
+  customWeightItem?: CustomWeightItem
 ): EquationState {
   const customWeights = [...(state[target].customWeights || [])];
   const customVariables = [...(state[target].customVariables || [])];
@@ -47,14 +48,27 @@ export function modifyPan(
       }
     }
   } else if (type === 'item') {
-    if (itemWeightValue !== undefined && itemWeightValue !== (state.itemWeight ?? 1)) {
+    if (customWeightItem) {
+      if (delta > 0) {
+        customWeights.push(customWeightItem);
+      } else {
+        const idx = customWeights.findLastIndex((w) =>
+          typeof w === 'object' ? w.name === customWeightItem.name : w === customWeightItem.value
+        );
+        if (idx >= 0) {
+          customWeights.splice(idx, 1);
+        } else {
+          pan.items = Math.max(0, pan.items + delta);
+        }
+      }
+    } else if (itemWeightValue !== undefined && itemWeightValue !== (state.itemWeight ?? 1)) {
       if (delta > 0) {
         for (let i = 0; i < delta; i++) {
           customWeights.push(itemWeightValue);
         }
       } else {
         // remove last matching or last custom weight
-        const idx = customWeights.lastIndexOf(itemWeightValue);
+        const idx = customWeights.findLastIndex((w) => getWeightNumericValue(w) === itemWeightValue);
         if (idx >= 0) {
           customWeights.splice(idx, 1);
         } else if (customWeights.length > 0) {

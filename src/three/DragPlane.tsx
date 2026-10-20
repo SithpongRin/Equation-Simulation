@@ -6,6 +6,7 @@ export const DragPlane: React.FC = () => {
   const draggedType = useGameStore((s) => s.draggedType);
   const draggedWeight = useGameStore((s) => s.draggedWeight);
   const draggedVariable = useGameStore((s) => s.draggedVariable);
+  const draggedCustomItem = useGameStore((s) => s.draggedCustomItem);
   const hoveredPan = useGameStore((s) => s.hoveredPan);
   const setHoveredPan = useGameStore((s) => s.setHoveredPan);
   const setDraggedType = useGameStore((s) => s.setDraggedType);
@@ -37,7 +38,7 @@ export const DragPlane: React.FC = () => {
     e.stopPropagation();
 
     if (hoveredPan === 'left' || hoveredPan === 'right') {
-      addToPan(hoveredPan, draggedType, draggedWeight, draggedVariable);
+      addToPan(hoveredPan, draggedType, draggedWeight, draggedVariable, draggedCustomItem);
     }
 
     setDraggedType(null);

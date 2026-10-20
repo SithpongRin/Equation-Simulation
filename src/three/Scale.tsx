@@ -109,16 +109,34 @@ export const Scale: React.FC = () => {
           <meshStandardMaterial color={primaryBlue} roughness={0.35} metalness={0.15} />
         </mesh>
 
-        {/* Round Central Fulcrum Pivot Ring with crisp white axle dot */}
+        {/* Round Central Fulcrum Pivot Ring with crisp white axle dot and LED Status Light */}
         <group position={[0, 0.88, 0.18]}>
           <mesh rotation={[0, 0, Math.PI / 2]}>
             <cylinderGeometry args={[0.26, 0.26, 0.12, 32]} />
             <meshStandardMaterial color={primaryBlue} roughness={0.3} metalness={0.15} />
           </mesh>
+          {/* LED Ring Housing */}
           <mesh rotation={[0, 0, Math.PI / 2]} position={[0, 0, 0.04]}>
-            <cylinderGeometry args={[0.13, 0.13, 0.08, 28]} />
-            <meshStandardMaterial color={pivotAccent} roughness={0.2} metalness={0.05} />
+            <cylinderGeometry args={[0.14, 0.14, 0.08, 28]} />
+            <meshStandardMaterial color="#0F172A" roughness={0.5} metalness={0.8} />
           </mesh>
+          {/* Glowing LED Center Bulb: Green (#10B981) when balanced, Red (#EF4444) when unbalanced */}
+          <mesh rotation={[0, 0, Math.PI / 2]} position={[0, 0, 0.07]}>
+            <cylinderGeometry args={[0.09, 0.09, 0.06, 24]} />
+            <meshStandardMaterial
+              color={balance.isBalanced ? '#10B981' : '#EF4444'}
+              emissive={balance.isBalanced ? '#10B981' : '#EF4444'}
+              emissiveIntensity={1.8}
+              roughness={0.1}
+            />
+          </mesh>
+          {/* Point light casting subtle glow from LED */}
+          <pointLight
+            position={[0, 0, 0.12]}
+            color={balance.isBalanced ? '#10B981' : '#EF4444'}
+            intensity={1.2}
+            distance={2.5}
+          />
         </group>
       </group>
 
@@ -190,7 +208,9 @@ export const Scale: React.FC = () => {
             isHovered={hoveredPan === 'left'}
             isSolved={balance.isSolved}
             onPanClick={() => handlePanClick('left')}
-            onRemoveItem={(type, weightVal, varItem) => removeFromPan('left', type, weightVal, varItem)}
+            onRemoveItem={(type, weightVal, varItem, customItem) =>
+              removeFromPan('left', type, weightVal, varItem, customItem)
+            }
           />
         </group>
 
@@ -208,7 +228,9 @@ export const Scale: React.FC = () => {
             isHovered={hoveredPan === 'right'}
             isSolved={balance.isSolved}
             onPanClick={() => handlePanClick('right')}
-            onRemoveItem={(type, weightVal, varItem) => removeFromPan('right', type, weightVal, varItem)}
+            onRemoveItem={(type, weightVal, varItem, customItem) =>
+              removeFromPan('right', type, weightVal, varItem, customItem)
+            }
           />
         </group>
       </group>
