@@ -1,0 +1,810 @@
+import { useRef, useState, useEffect } from 'react';
+import {
+  RotateCcw,
+  Undo2,
+  Redo2,
+  Settings as SettingsIcon,
+  Sun,
+  Moon,
+  CheckCircle2,
+  Scale as ScaleIcon,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PlusCircle,
+  Trash2,
+} from 'lucide-react';
+import { Scene } from './three/Scene';
+import type { SceneHandle } from './three/Scene';
+import { useGameStore } from './store/useGameStore';
+import { formatSideExpression } from './math/equationModel';
+import { EquationActionBar } from './ui/EquationActionBar';
+import confetti from 'canvas-confetti';
+
+export function App() {
+  const sceneRef = useRef<SceneHandle>(null);
+
+  // Store
+  const equation = useGameStore((s) => s.equation);
+  const balance = useGameStore((s) => s.balanceMetrics);
+  const colorMode = useGameStore((s) => s.colorMode);
+  const toggleColorMode = useGameStore((s) => s.toggleColorMode);
+  const nextProblem = useGameStore((s) => s.nextProblem);
+  const resetCurrentProblem = useGameStore((s) => s.resetCurrentProblem);
+  const addToPan = useGameStore((s) => s.addToPan);
+  const setXValue = useGameStore((s) => s.setXValue);
+  const setItemWeight = useGameStore((s) => s.setItemWeight);
+  const autoBalance = useGameStore((s) => s.autoBalance);
+  const undo = useGameStore((s) => s.undo);
+  const redo = useGameStore((s) => s.redo);
+  const historyIndex = useGameStore((s) => s.historyIndex);
+  const history = useGameStore((s) => s.history);
+  const isSolvedCelebration = useGameStore((s) => s.isSolvedCelebration);
+  const dismissCelebration = useGameStore((s) => s.dismissCelebration);
+  const setDraggedType = useGameStore((s) => s.setDraggedType);
+  const draggedType = useGameStore((s) => s.draggedType);
+  const draggedWeight = useGameStore((s) => s.draggedWeight);
+  const draggedVariable = useGameStore((s) => s.draggedVariable);
+
+  // Drag ghost tracking state for touch / mouse
+  const [dragPointer, setDragPointer] = useState<{ x: number; y: number } | null>(null);
+
+  // Modals
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  // Sidebar collapsible state ("ផ្ទាំងនេះអាចទាញចេញចូលបាន")
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Quick active weight preset for dragging/adding
+  const [activeWeight, setActiveWeight] = useState<number>(1);
+  const WEIGHT_PRESETS = [1, 2, 5, 10];
+
+  // Custom User-Created Blocks & Variables ("អ្នកប្រើប្រាស់អាចបង្កើត Box Variable ដោយខ្លួនឯង និង Box value ដោយខ្លួនឯង")
+  interface CustomBlock {
+    id: string;
+    type: 'variable' | 'weight';
+    name: string; // e.g. "x", "y", "a" or "2kg", "3kg"
+    value: number; // numeric value for balance calculation
+    color?: string;
+  }
+
+  const CUSTOM_BLOCKS_KEY = 'equation_lab_custom_blocks_v1';
+
+  const defaultBlocks: CustomBlock[] = [
+    { id: 'var-x', type: 'variable', name: 'x', value: 5 },
+    { id: 'w-1', type: 'weight', name: '1kg', value: 1 },
+    { id: 'w-2', type: 'weight', name: '2kg', value: 2 },
+    { id: 'w-3', type: 'weight', name: '3kg', value: 3 },
+    { id: 'w-5', type: 'weight', name: '5kg', value: 5 },
+  ];
+
+  const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>(() => {
+    try {
+      const saved = localStorage.getItem(CUSTOM_BLOCKS_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // ignore
+    }
+    return defaultBlocks;
+  });
+
+  // Automatically save to localStorage whenever customBlocks change
+  useEffect(() => {
+    try {
+      localStorage.setItem(CUSTOM_BLOCKS_KEY, JSON.stringify(customBlocks));
+    } catch {
+      // ignore
+    }
+  }, [customBlocks]);
+
+  // Form states for creating custom variable / weight blocks
+  const [newBlockType, setNewBlockType] = useState<'variable' | 'weight'>('variable');
+  const [newBlockName, setNewBlockName] = useState<string>('y');
+  const [newBlockValue, setNewBlockValue] = useState<number>(3);
+
+  const handleCreateBlock = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newBlockName.trim();
+    if (!trimmed) return;
+    const block: CustomBlock = {
+      id: `custom-${Date.now()}`,
+      type: newBlockType,
+      name: trimmed,
+      value: Math.max(1, newBlockValue),
+    };
+    setCustomBlocks((prev) => [...prev, block]);
+    if (newBlockType === 'variable') {
+      setNewBlockName(String.fromCharCode(trimmed.charCodeAt(0) + 1));
+    } else {
+      setNewBlockName(`${Math.max(1, newBlockValue + 1)}kg`);
+    }
+  };
+
+  const handleDeleteBlock = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCustomBlocks((prev) => prev.filter((b) => b.id !== id));
+  };
+
+  const isDark = colorMode === 'dark';
+  const itemWeight = equation.itemWeight ?? 1;
+  const leftStr = formatSideExpression(equation.left, itemWeight);
+  const rightStr = formatSideExpression(equation.right, itemWeight);
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  useEffect(() => {
+    if (colorMode === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [colorMode]);
+
+  useEffect(() => {
+    if (isSolvedCelebration) {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#10B981', '#38BDF8', '#F59E0B', '#EF4444'],
+      });
+    }
+  }, [isSolvedCelebration]);
+
+  // Global pointer move & up listeners for smooth drag & drop
+  useEffect(() => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!draggedType) return;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      setDragPointer({ x: clientX, y: clientY });
+    };
+
+    const handleUp = () => {
+      setDragPointer(null);
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('touchmove', handleMove, { passive: true });
+    window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchend', handleUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchend', handleUp);
+    };
+  }, [draggedType]);
+
+  const startDrag = (
+    type: 'bag' | 'item',
+    clientX: number,
+    clientY: number,
+    weightValue?: number,
+    variableItem?: { name: string; value: number }
+  ) => {
+    setDraggedType(type, weightValue, variableItem);
+    setDragPointer({ x: clientX, y: clientY });
+  };
+
+  return (
+    <div className={`w-screen h-screen flex flex-col overflow-hidden select-none font-['Noto_Sans_Khmer',system-ui,sans-serif] ${
+      isDark ? 'bg-[#0B1020] text-[#F8FAFC]' : 'bg-[#F8FAFC] text-[#0F172A]'
+    }`}>
+      {/* ================= 1. CLEAN TOP HEADER ================= */}
+      <header className={`h-14 px-4 flex items-center justify-between border-b shrink-0 z-20 ${
+        isDark ? 'bg-[#10172A]/90 border-[#1E293B]' : 'bg-[#FFFFFF]/90 border-[#E2E8F0] shadow-xs'
+      }`}>
+        <div className="flex items-center gap-2">
+          {/* Toggle Sidebar Button */}
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className={`p-2 rounded-xl border transition active:scale-95 flex items-center justify-center ${
+              isDark
+                ? 'bg-[#1E293B] border-[#334155] text-[#38BDF8] hover:bg-[#334155]'
+                : 'bg-[#F1F5F9] border-[#CBD5E1] text-[#0284C7] hover:bg-[#E2E8F0]'
+            }`}
+            title={isSidebarOpen ? 'បិទផ្ទាំងបញ្ជា (Hide Sidebar)' : 'បើកផ្ទាំងបញ្ជា (Show Sidebar)'}
+          >
+            {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+          </button>
+        </div>
+
+        {/* Center: Live Equation Clean Text (Moved here to completely free the 3D canvas) */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 font-['Outfit',sans-serif]">
+            <span className="text-xl sm:text-2xl font-black text-[#0284C7] dark:text-[#38BDF8]">
+              {leftStr}
+            </span>
+            <span className="text-lg sm:text-xl font-black text-[#94A3B8]">=</span>
+            <span className={`text-xl sm:text-2xl font-black ${
+              isDark ? 'text-[#F8FAFC]' : 'text-[#0F172A]'
+            }`}>
+              {rightStr}
+            </span>
+          </div>
+
+          {/* Balance Status indicator */}
+          <div>
+            {balance.isBalanced ? (
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>មានលំនឹង</span>
+              </div>
+            ) : balance.difference > 0 ? (
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F59E0B]/15 text-[#D97706] dark:text-[#F59E0B] border border-[#F59E0B]/30">
+                <ScaleIcon className="w-3 h-3" />
+                <span>ឆ្វេងធ្ងន់ (+{balance.difference})</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EF4444]/15 text-[#DC2626] dark:text-[#EF4444] border border-[#EF4444]/30">
+                <ScaleIcon className="w-3 h-3" />
+                <span>ស្តាំធ្ងន់ (+{Math.abs(balance.difference)})</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right utility buttons */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleColorMode}
+            className={`p-2 rounded-xl transition ${
+              isDark ? 'text-[#F59E0B] hover:bg-[#1E293B]' : 'text-[#0284C7] hover:bg-[#F1F5F9]'
+            }`}
+            title="ប្តូរពន្លឺ / ងងឹត"
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => sceneRef.current?.resetCamera()}
+            className={`p-2 rounded-xl transition ${
+              isDark ? 'text-[#94A3B8] hover:bg-[#1E293B]' : 'text-[#64748B] hover:bg-[#F1F5F9]'
+            }`}
+            title="កំណត់ទិដ្ឋភាពឡើងវិញ"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            className={`p-2 rounded-xl transition ${
+              canUndo
+                ? isDark ? 'text-[#F8FAFC] hover:bg-[#1E293B]' : 'text-[#0F172A] hover:bg-[#F1F5F9]'
+                : 'opacity-25 cursor-not-allowed'
+            }`}
+            title="ត្រឡប់ក្រោយ"
+          >
+            <Undo2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            className={`p-2 rounded-xl transition ${
+              canRedo
+                ? isDark ? 'text-[#F8FAFC] hover:bg-[#1E293B]' : 'text-[#0F172A] hover:bg-[#F1F5F9]'
+                : 'opacity-25 cursor-not-allowed'
+            }`}
+            title="ទៅមុខ"
+          >
+            <Redo2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className={`p-2 rounded-xl transition ${
+              isDark ? 'text-[#94A3B8] hover:bg-[#1E293B]' : 'text-[#64748B] hover:bg-[#F1F5F9]'
+            }`}
+            title="ការកំណត់"
+          >
+            <SettingsIcon className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* ================= 2. MAIN LAYOUT: LEFT SIDEBAR & 3D CANVAS ================= */}
+      <div className="flex-1 w-full flex flex-col md:flex-row overflow-hidden relative">
+        {/* ================= LEFT SIDEBAR (Controls & Draggable Tray) ================= */}
+        <aside
+          className={`shrink-0 border-b md:border-b-0 md:border-r flex flex-col gap-3 p-4 overflow-y-auto z-20 transition-all duration-300 relative ${
+            isSidebarOpen
+              ? 'w-full md:w-84 lg:w-96 translate-x-0'
+              : 'w-0 p-0 overflow-hidden -translate-x-full border-none opacity-0 pointer-events-none'
+          } ${
+            isDark ? 'bg-[#10172A] border-[#1E293B]' : 'bg-[#FFFFFF] border-[#E2E8F0] shadow-md'
+          }`}
+        >
+          {/* Header row in sidebar with close button */}
+          <div className="flex items-center justify-between border-b pb-2">
+            <span className="text-xs font-black text-[#0284C7] dark:text-[#38BDF8]">
+              ផ្ទាំងបញ្ជា (Controls)
+            </span>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[#64748B] transition"
+              title="បិទផ្ទាំង (Collapse Sidebar)"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Core Equation Operations Bar (Apply to Both Sides) */}
+          <EquationActionBar onNextProblem={nextProblem} />
+
+          {/* Draggable Items Box: Clean Ghibli Style Drag Tray */}
+          <div className="flex flex-col gap-3 w-full">
+            <span className="text-xs font-black text-[#64748B] dark:text-[#94A3B8]">
+              សម្ភារៈពិសោធន៍
+            </span>
+
+            {/* Draggable Mystery Box (x) */}
+            <div className={`p-3 rounded-2xl border flex items-center justify-between gap-2 shadow-xs ${
+              isDark ? 'bg-[#1E293B]/70 border-[#334155]' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+            }`}>
+              <div
+                onMouseDown={(e) => startDrag('bag', e.clientX, e.clientY)}
+                onTouchStart={(e) => startDrag('bag', e.touches[0].clientX, e.touches[0].clientY)}
+                className="flex items-center gap-2 cursor-grab active:cursor-grabbing p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition"
+                title="អូសដាក់លើថាស"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#0284C7] border-2 border-amber-300 flex items-center justify-center text-white font-black text-lg shadow-sm">
+                  x
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-black text-[#0284C7] dark:text-[#38BDF8]">ប្រអប់ (x)</span>
+                  <span className="text-[10px] text-[#94A3B8]">អូសដាក់លើថាស</span>
+                </div>
+              </div>
+
+              <div className="flex gap-1">
+                <button
+                  onClick={() => addToPan('left', 'bag')}
+                  className="px-2.5 py-1.5 bg-[#0284C7] text-white rounded-lg text-xs font-bold active:scale-95 transition"
+                  title="ថែមលើឆ្វេង"
+                >
+                  + ឆ្វេង
+                </button>
+                <button
+                  onClick={() => addToPan('right', 'bag')}
+                  className="px-2.5 py-1.5 bg-[#0284C7] text-white rounded-lg text-xs font-bold active:scale-95 transition"
+                  title="ថែមលើស្តាំ"
+                >
+                  + ស្តាំ
+                </button>
+              </div>
+            </div>
+
+            {/* Draggable Metal Weights Tray */}
+            <div className={`p-3 rounded-2xl border flex flex-col gap-2.5 shadow-xs ${
+              isDark ? 'bg-[#1E293B]/70 border-[#334155]' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-[#10B981]">ដុំទម្ងន់ ({activeWeight}kg)</span>
+                {/* Weight Presets Selector */}
+                <div className="flex items-center gap-1">
+                  {WEIGHT_PRESETS.map((w) => (
+                    <button
+                      key={w}
+                      onClick={() => {
+                        setActiveWeight(w);
+                        setItemWeight(w);
+                      }}
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-black transition active:scale-95 ${
+                        activeWeight === w
+                          ? 'bg-[#10B981] text-white shadow-xs'
+                          : isDark
+                          ? 'bg-[#334155] text-[#94A3B8] hover:text-white'
+                          : 'bg-[#E2E8F0] text-[#64748B] hover:text-black'
+                      }`}
+                    >
+                      {w}k
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <div
+                  onMouseDown={(e) => startDrag('item', e.clientX, e.clientY, activeWeight)}
+                  onTouchStart={(e) => startDrag('item', e.touches[0].clientX, e.touches[0].clientY, activeWeight)}
+                  className="flex items-center gap-2 cursor-grab active:cursor-grabbing p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition flex-1"
+                  title="ចុចអូស (Drag) ទៅដាក់លើថាសឆ្វេង ឬស្តាំ"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#334155] border-2 border-amber-400 flex items-center justify-center text-amber-300 font-black text-xs shadow-sm">
+                    {activeWeight}kg
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-[#10B981]">{activeWeight} គីឡូក្រាម</span>
+                    <span className="text-[10px] text-[#94A3B8]">អូសដាក់លើថាស</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => {
+                      addToPan('left', 'item', activeWeight);
+                    }}
+                    className="px-2.5 py-1.5 bg-[#10B981] text-white rounded-lg text-xs font-bold active:scale-95 transition"
+                    title={`ថែមដុំដែក ${activeWeight}kg លើថាសឆ្វេង`}
+                  >
+                    + ឆ្វេង
+                  </button>
+                  <button
+                    onClick={() => {
+                      addToPan('right', 'item', activeWeight);
+                    }}
+                    className="px-2.5 py-1.5 bg-[#10B981] text-white rounded-lg text-xs font-bold active:scale-95 transition"
+                    title={`ថែមដុំដែក ${activeWeight}kg លើថាសស្តាំ`}
+                  >
+                    + ស្តាំ
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Form to Create Custom Box Variable & Box Value */}
+          <div className={`p-3 rounded-2xl border flex flex-col gap-2.5 shadow-xs ${
+            isDark ? 'bg-[#1E293B]/70 border-[#334155]' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+          }`}>
+            <span className="text-xs font-black text-[#0284C7] dark:text-[#38BDF8] flex items-center gap-1.5">
+              <PlusCircle className="w-4 h-4" />
+              <span>បង្កើតប្រអប់ / ដុំទម្ងន់</span>
+            </span>
+
+            <form onSubmit={handleCreateBlock} className="flex flex-col gap-2">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewBlockType('variable');
+                    setNewBlockName('y');
+                    setNewBlockValue(3);
+                  }}
+                  className={`flex-1 py-1 rounded-lg text-xs font-bold border transition ${
+                    newBlockType === 'variable'
+                      ? 'bg-[#0284C7] text-white border-[#0284C7]'
+                      : isDark ? 'bg-[#334155] text-[#94A3B8] border-transparent' : 'bg-[#E2E8F0] text-[#64748B] border-transparent'
+                  }`}
+                >
+                  អថេរ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewBlockType('weight');
+                    setNewBlockName('4kg');
+                    setNewBlockValue(4);
+                  }}
+                  className={`flex-1 py-1 rounded-lg text-xs font-bold border transition ${
+                    newBlockType === 'weight'
+                      ? 'bg-[#10B981] text-white border-[#10B981]'
+                      : isDark ? 'bg-[#334155] text-[#94A3B8] border-transparent' : 'bg-[#E2E8F0] text-[#64748B] border-transparent'
+                  }`}
+                >
+                  ដុំទម្ងន់
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex flex-col">
+                  <label className="text-[10px] text-[#64748B] dark:text-[#94A3B8] font-bold">
+                    {newBlockType === 'variable' ? 'ឈ្មោះអថេរ' : 'ស្លាកទម្ងន់'}
+                  </label>
+                  <input
+                    type="text"
+                    value={newBlockName}
+                    onChange={(e) => setNewBlockName(e.target.value)}
+                    maxLength={5}
+                    className={`px-2 py-1.5 rounded-lg border text-xs font-bold ${
+                      isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-[#CBD5E1] text-black'
+                    }`}
+                    placeholder={newBlockType === 'variable' ? 'y, z, a' : '3kg, 7kg'}
+                  />
+                </div>
+
+                <div className="flex-1 flex flex-col">
+                  <label className="text-[10px] text-[#64748B] dark:text-[#94A3B8] font-bold">
+                    ទម្ងន់ (kg)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={newBlockValue}
+                    onChange={(e) => setNewBlockValue(parseInt(e.target.value) || 1)}
+                    className={`px-2 py-1.5 rounded-lg border text-xs font-bold ${
+                      isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-[#CBD5E1] text-black'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-1.5 bg-[#0284C7] hover:bg-[#0369A1] text-white rounded-lg text-xs font-black shadow-xs transition active:scale-95"
+              >
+                + បង្កើត
+              </button>
+            </form>
+          </div>
+
+          {/* Quick Parameters Controller: Adjust x value AND Item (kg) weight */}
+          <div className={`p-3 rounded-2xl border flex flex-col gap-2.5 text-xs mt-auto ${
+            isDark ? 'bg-[#1E293B]/50 border-[#334155]' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+          }`}>
+            <div className="flex items-center justify-between">
+              {/* x adjuster */}
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-[#64748B] dark:text-[#94A3B8]">តម្លៃ x៖</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setXValue(Math.max(1, equation.xValue - 1))}
+                    className="w-5 h-5 rounded-md flex items-center justify-center font-bold border bg-white dark:bg-[#1E293B]"
+                  >
+                    -
+                  </button>
+                  <span className="font-black text-[#0284C7] dark:text-[#38BDF8] px-1">{equation.xValue}</span>
+                  <button
+                    onClick={() => setXValue(Math.min(25, equation.xValue + 1))}
+                    className="w-5 h-5 rounded-md flex items-center justify-center font-bold border bg-white dark:bg-[#1E293B]"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* item weight (kg) adjuster */}
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-[#64748B] dark:text-[#94A3B8]">ទម្ងន់ ១ដុំ៖</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      const next = Math.max(1, activeWeight - 1);
+                      setActiveWeight(next);
+                      setItemWeight(next);
+                    }}
+                    className="w-5 h-5 rounded-md flex items-center justify-center font-bold border bg-white dark:bg-[#1E293B]"
+                  >
+                    -
+                  </button>
+                  <span className="font-black text-[#10B981] px-1">{activeWeight}kg</span>
+                  <button
+                    onClick={() => {
+                      const next = Math.min(50, activeWeight + 1);
+                      setActiveWeight(next);
+                      setItemWeight(next);
+                    }}
+                    className="w-5 h-5 rounded-md flex items-center justify-center font-bold border bg-white dark:bg-[#1E293B]"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1 border-t border-dashed border-gray-200 dark:border-gray-700">
+              <button
+                onClick={autoBalance}
+                className="text-xs font-bold text-[#F59E0B] hover:underline"
+              >
+                ស្មើគ្នាស្វ័យប្រវត្តិ
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* ================= 3D BALANCE SCALE CANVAS (EXPANDED TO FULL SPACE) ================= */}
+        <main className="flex-1 h-full relative touch-none overflow-hidden">
+          {/* Floating trigger button to reopen sidebar when collapsed */}
+          {!isSidebarOpen && (
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className={`absolute top-4 left-4 z-30 p-2.5 rounded-2xl shadow-xl border flex items-center gap-1.5 font-bold text-xs transition active:scale-95 ${
+                isDark
+                  ? 'bg-[#10172A] border-[#334155] text-[#38BDF8] hover:bg-[#1E293B]'
+                  : 'bg-[#FFFFFF] border-[#CBD5E1] text-[#0284C7] hover:bg-[#F8FAFC]'
+              }`}
+              title="បើកផ្ទាំងបញ្ជា (Open Sidebar)"
+            >
+              <ChevronRight className="w-4 h-4" />
+              <span>ផ្ទាំងបញ្ជា</span>
+            </button>
+          )}
+
+          {/* 3D WebGL Canvas */}
+          <Scene ref={sceneRef} />
+
+          {/* Floating Drag Ghost when dragging */}
+          {draggedType && dragPointer && (
+            <div
+              className="fixed pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-2xl flex items-center justify-center shadow-2xl animate-pulse"
+              style={{ left: dragPointer.x, top: dragPointer.y }}
+            >
+              {draggedType === 'bag' ? (
+                <div className="w-14 h-14 rounded-2xl bg-[#0284C7] border-2 border-amber-300 flex items-center justify-center text-white font-black text-2xl shadow-xl">
+                  {draggedVariable?.name || 'x'}
+                </div>
+              ) : (
+                <div className="w-14 h-14 rounded-2xl bg-[#334155] border-2 border-amber-400 flex flex-col items-center justify-center text-amber-300 font-black text-sm shadow-xl">
+                  {draggedWeight ?? activeWeight}kg
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ================= 4. BOTTOM BENCH SHELF (Where created boxes appear and can be dragged) ================= */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-2xl w-11/12">
+            <div className={`px-4 py-3 rounded-2xl border backdrop-blur-md shadow-2xl flex items-center gap-3 overflow-x-auto ${
+              isDark ? 'bg-[#10172A]/90 border-[#334155]' : 'bg-[#FFFFFF]/95 border-[#CBD5E1]'
+            }`}>
+              <div className="shrink-0 flex flex-col pr-2 border-r border-gray-300 dark:border-gray-700">
+                <span className="text-[11px] font-black text-[#0284C7] dark:text-[#38BDF8]">
+                  ធ្នើដាក់ប្រអប់
+                </span>
+                <span className="text-[9px] text-[#94A3B8]">
+                  អូសដាក់លើថាស
+                </span>
+              </div>
+
+              {/* List of Custom Boxes & Values on the Bottom Shelf */}
+              <div className="flex items-center gap-2.5 overflow-x-auto py-1">
+                {customBlocks.map((b) => (
+                  <div
+                    key={b.id}
+                    className={`group relative shrink-0 p-2 rounded-xl border flex items-center gap-2 transition shadow-xs select-none ${
+                      b.type === 'variable'
+                        ? isDark ? 'bg-[#0284C7]/20 border-[#0284C7]/50' : 'bg-sky-50 border-sky-300'
+                        : isDark ? 'bg-[#10B981]/20 border-[#10B981]/50' : 'bg-emerald-50 border-emerald-300'
+                    }`}
+                  >
+                    {/* Draggable block thumbnail */}
+                    <div
+                      onMouseDown={(e) => {
+                        if (b.type === 'variable') {
+                          startDrag('bag', e.clientX, e.clientY, undefined, { name: b.name, value: b.value });
+                        } else {
+                          setActiveWeight(b.value);
+                          startDrag('item', e.clientX, e.clientY, b.value);
+                        }
+                      }}
+                      onTouchStart={(e) => {
+                        if (b.type === 'variable') {
+                          startDrag('bag', e.touches[0].clientX, e.touches[0].clientY, undefined, { name: b.name, value: b.value });
+                        } else {
+                          setActiveWeight(b.value);
+                          startDrag('item', e.touches[0].clientX, e.touches[0].clientY, b.value);
+                        }
+                      }}
+                      className="flex items-center gap-2 cursor-grab active:cursor-grabbing"
+                      title="ចុចអូស (Drag) ទៅដាក់លើថាសឆ្វេង ឬស្តាំ"
+                    >
+                      {b.type === 'variable' ? (
+                        <div className="w-9 h-9 rounded-lg bg-[#0284C7] border-2 border-amber-300 flex items-center justify-center text-white font-black text-sm shadow-xs">
+                          {b.name}
+                        </div>
+                      ) : (
+                        <div className="w-9 h-9 rounded-lg bg-[#334155] border-2 border-amber-400 flex items-center justify-center text-amber-300 font-black text-xs shadow-xs">
+                          {b.name}
+                        </div>
+                      )}
+                      <div className="flex flex-col text-left">
+                        <span className="text-[11px] font-black text-[#0F172A] dark:text-[#F8FAFC]">
+                          {b.name}
+                        </span>
+                        {b.type === 'weight' && (
+                          <span className="text-[9px] text-[#64748B] dark:text-[#94A3B8]">
+                            ={b.value}kg
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Quick + Left / + Right buttons */}
+                    <div className="flex items-center gap-1 pl-1">
+                      <button
+                        onClick={() => {
+                          if (b.type === 'variable') {
+                            addToPan('left', 'bag', undefined, { name: b.name, value: b.value });
+                          } else {
+                            addToPan('left', 'item', b.value);
+                          }
+                        }}
+                        className={`px-1.5 py-1 rounded text-[10px] font-bold text-white transition active:scale-90 ${
+                          b.type === 'variable' ? 'bg-[#0284C7]' : 'bg-[#10B981]'
+                        }`}
+                        title="ថែមលើថាសឆ្វេង"
+                      >
+                        +L
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (b.type === 'variable') {
+                            addToPan('right', 'bag', undefined, { name: b.name, value: b.value });
+                          } else {
+                            addToPan('right', 'item', b.value);
+                          }
+                        }}
+                        className={`px-1.5 py-1 rounded text-[10px] font-bold text-white transition active:scale-90 ${
+                          b.type === 'variable' ? 'bg-[#0284C7]' : 'bg-[#10B981]'
+                        }`}
+                        title="ថែមលើថាសស្តាំ"
+                      >
+                        +R
+                      </button>
+                    </div>
+
+                    {/* Delete button (for custom created items) */}
+                    {customBlocks.length > 2 && (
+                      <button
+                        onClick={(e) => handleDeleteBlock(b.id, e)}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-400 hover:text-red-500 transition"
+                        title="លុបចេញ"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`border rounded-3xl max-w-sm w-full p-5 shadow-2xl flex flex-col gap-4 ${
+            isDark ? 'bg-[#10172A] border-[#1E293B] text-[#F8FAFC]' : 'bg-[#FFFFFF] border-[#CBD5E1] text-[#0F172A]'
+          }`}>
+            <div className="flex items-center justify-between border-b pb-2">
+              <h2 className="text-base font-bold">ការកំណត់</h2>
+              <button onClick={() => setIsSettingsOpen(false)} className="p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                resetCurrentProblem();
+                setIsSettingsOpen(false);
+              }}
+              className="w-full py-2.5 bg-[#EF4444] text-white rounded-xl text-xs font-bold"
+            >
+              កំណត់លំហាត់ឡើងវិញ
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Solved Celebration Dialog */}
+      {isSolvedCelebration && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`border rounded-3xl max-w-sm w-full p-6 shadow-2xl flex flex-col items-center gap-4 text-center ${
+            isDark ? 'bg-[#10172A] border-[#10B981] text-[#F8FAFC]' : 'bg-[#FFFFFF] border-[#10B981] text-[#0F172A]'
+          }`}>
+            <h2 className="text-xl font-black text-[#10B981]">អបអរសាទរ!</h2>
+            <p className="text-xs text-[#94A3B8]">អ្នកបានដោះស្រាយសមីការជោគជ័យ!</p>
+            <div className="text-5xl font-black text-[#10B981] font-['Outfit',sans-serif]">
+              x = {equation.xValue}
+            </div>
+            <button
+              onClick={() => {
+                dismissCelebration();
+                nextProblem();
+              }}
+              className="w-full py-3 bg-[#10B981] text-white rounded-xl text-xs font-black shadow-lg"
+            >
+              លំហាត់បន្ទាប់
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;

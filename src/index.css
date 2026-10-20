@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #EDF2F9;
+    --surface: #FFFFFF;
+    --surface-light: #F8FAFC;
+    --border: #CBD5E1;
+    --text-main: #0F172A;
+    --text-muted: #64748B;
+    --accent-blue: #0284C7;
+    --accent-amber: #D97706;
+    --accent-coral: #E11D48;
+    --accent-mint: #10B981;
+  }
+
+  :root.dark {
+    --bg-main: #0A0F24;
+    --surface: #0F172A;
+    --surface-light: #1E293B;
+    --border: #334155;
+    --text-main: #F8FAFC;
+    --text-muted: #94A3B8;
+    --accent-blue: #38BDF8;
+    --accent-amber: #FBBF24;
+    --accent-coral: #F43F5E;
+    --accent-mint: #34D399;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+}
+
+.glow-mint {
+  box-shadow: 0 0 24px rgba(52, 211, 153, 0.45);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.4);
+}
+
+.glow-amber {
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+}
+
+.glow-coral {
+  box-shadow: 0 0 20px rgba(244, 63, 94, 0.4);
+}
