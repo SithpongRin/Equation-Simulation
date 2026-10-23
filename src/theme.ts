@@ -13,6 +13,15 @@ export const ANIME_THEME = {
   accentPurple: '#A855F7',
 } as const;
 
+// Antique brass & cast-iron palette for the 3D balance scale
+export const ANTIQUE = {
+  brass: '#C8A050',        // Polished antique brass
+  brassDark: '#8F6B2E',    // Aged / patinated brass accents
+  iron: '#2C2F33',         // Blackened cast iron
+  walnut: '#5A3620',       // Dark walnut wood
+  walnutDark: '#3E2414',
+} as const;
+
 export type ItemThemeId = 'fruits' | 'sweets' | 'toys' | 'space';
 
 export interface ItemThemeOption {

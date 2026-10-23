@@ -1,6 +1,6 @@
 import { useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, ContactShadows } from '@react-three/drei';
+import { OrbitControls, ContactShadows, Environment, Lightformer } from '@react-three/drei';
 import * as THREE from 'three';
 import { Scale } from './Scale';
 import { DragPlane } from './DragPlane';
@@ -101,15 +101,31 @@ export const Scene = forwardRef<SceneHandle>((_, ref) => {
       >
         <fog attach="fog" args={[fogColor, 10, 25]} />
 
+        {/* Local studio reflections so polished brass / iron read as real metal */}
+        <Environment resolution={256} environmentIntensity={isDark ? 0.6 : 0.85}>
+          <Lightformer form="rect" intensity={3} position={[0, 5, 3]} scale={[10, 3, 1]} rotation-x={Math.PI / 2.5} />
+          <Lightformer form="rect" intensity={1.5} position={[-6, 2, 2]} scale={[3, 6, 1]} rotation-y={Math.PI / 2} />
+          <Lightformer form="rect" intensity={1.5} position={[6, 2, 2]} scale={[3, 6, 1]} rotation-y={-Math.PI / 2} />
+          <Lightformer form="ring" color="#FFE8C2" intensity={2} position={[0, 2, 8]} scale={3} />
+          <Lightformer form="rect" color="#3B2A1A" intensity={0.6} position={[0, -3, 0]} scale={[20, 20, 1]} rotation-x={-Math.PI / 2} />
+        </Environment>
+
         {/* Ambient lighting */}
-        <ambientLight intensity={isDark ? 0.9 : 1.2} color={isDark ? '#E2E8F0' : '#FFFFFF'} />
+        <ambientLight intensity={isDark ? 0.55 : 0.75} color={isDark ? '#E2E8F0' : '#FFFFFF'} />
 
         {/* Crisp Front/Top Key Light */}
         <directionalLight
-          position={[0, 6, 8]}
-          intensity={isDark ? 1.4 : 1.5}
-          color="#FFFFFF"
+          position={[2, 7, 7]}
+          intensity={isDark ? 1.4 : 1.6}
+          color="#FFF7EA"
           castShadow={!isLowQuality}
+          shadow-mapSize={[2048, 2048]}
+          shadow-bias={-0.0004}
+          shadow-normalBias={0.02}
+          shadow-camera-left={-6}
+          shadow-camera-right={6}
+          shadow-camera-top={5}
+          shadow-camera-bottom={-3}
         />
 
         {/* Soft fill light from left and right */}

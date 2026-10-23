@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
+import * as THREE from 'three';
 import { WeightBlock } from './WeightBlock';
 import { Item } from './Item';
+import { ANTIQUE } from '../theme';
 import type { CustomWeightItem } from '../math/equationModel';
 import { getWeightNumericValue } from '../math/equationModel';
 
@@ -35,6 +37,42 @@ export const Pan: React.FC<PanProps> = ({
   const panRadius = 1.35;
   const panDepth = 0.12;
   const surfaceY = 0.08 + panDepth / 2; // Exact top surface of the plate: 0.14
+
+  // Concave dish profile (radius, height) revolved around Y
+  const dishGeometry = useMemo(() => {
+    const p = (r: number, y: number) => new THREE.Vector2(r, y);
+    const profile = [
+      p(0, 0.03),
+      p(0.55, 0.03),
+      p(1.05, 0.085),
+      p(1.28, 0.17),
+      p(panRadius + 0.02, 0.245),
+      p(panRadius - 0.02, 0.25),
+      p(1.24, 0.19),
+      p(1.12, surfaceY),
+      p(0, surfaceY),
+    ];
+    return new THREE.LatheGeometry(profile, 72);
+  }, [panRadius, surfaceY]);
+
+  // Turned stem from beam pivot (y=0) up to the dish underside
+  const stemGeometry = useMemo(() => {
+    const p = (r: number, y: number) => new THREE.Vector2(r, y);
+    const profile = [
+      p(0, 0),
+      p(0.055, 0),
+      p(0.055, 0.14),
+      p(0.085, 0.16),
+      p(0.085, 0.185),
+      p(0.05, 0.205),
+      p(0.04, 0.26),
+      p(0.08, 0.3),
+      p(0.28, 0.34),
+      p(0.28, 0.355),
+      p(0, 0.355),
+    ];
+    return new THREE.LatheGeometry(profile, 40);
+  }, []);
 
   // Combine default bags (x) and custom variables (y, z, etc.)
   const allVariables = useMemo(() => {
@@ -140,46 +178,35 @@ export const Pan: React.FC<PanProps> = ({
       e.stopPropagation();
       onPanClick();
     }}>
-      {/* ================= TOP-MOUNTED WEIGHING DISH (Matching Vector Reference) ================= */}
-      {/* Distinct Raised Top Lip Rim */}
-      <mesh position={[0, 0.16, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[panRadius + 0.04, panRadius + 0.04, 0.04, 48]} />
+      {/* ================= ANTIQUE BRASS WEIGHING DISH ================= */}
+      {/* Concave lathe-turned dish: flat floor at surfaceY, sloped wall, rolled rim */}
+      <mesh geometry={dishGeometry} castShadow receiveShadow>
         <meshStandardMaterial
-          color={isHovered ? '#BAE6FD' : '#F1F5F9'}
-          roughness={0.2}
-          metalness={0.08}
+          color={ANTIQUE.brass}
+          metalness={1}
+          roughness={0.3}
+          emissive={isHovered ? '#FDE68A' : '#000000'}
+          emissiveIntensity={isHovered ? 0.35 : 0}
+          side={THREE.DoubleSide}
         />
       </mesh>
 
-      {/* Main Shallow Weighing Dish Bowl */}
-      <mesh position={[0, 0.05, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[panRadius, panRadius * 0.88, 0.20, 48]} />
+      {/* Rolled rim bead */}
+      <mesh position={[0, 0.255, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <torusGeometry args={[panRadius + 0.02, 0.025, 12, 72]} />
         <meshStandardMaterial
-          color={isHovered ? '#E0F2FE' : '#E8EEF5'}
-          roughness={0.25}
-          metalness={0.08}
+          color={isHovered ? '#FCD34D' : ANTIQUE.brassDark}
+          metalness={1}
+          roughness={0.32}
+          emissive={isHovered ? '#FDE68A' : '#000000'}
+          emissiveIntensity={isHovered ? 0.4 : 0}
         />
       </mesh>
 
-      {/* Vertical Support Stem Lug */}
-      <mesh position={[0, -0.14, 0]} castShadow>
-        <cylinderGeometry args={[0.11, 0.11, 0.18, 20]} />
-        <meshStandardMaterial color="#1D4E89" roughness={0.3} metalness={0.2} />
+      {/* Turned brass stem down to the beam pivot */}
+      <mesh geometry={stemGeometry} position={[0, -0.32, 0]} castShadow>
+        <meshStandardMaterial color={ANTIQUE.brass} metalness={1} roughness={0.3} />
       </mesh>
-
-      {/* Under-pan round pivot joint facing camera (+Z) */}
-      <group position={[0, -0.28, 0]}>
-        {/* Outer pivot cylinder ring */}
-        <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[0.18, 0.18, 0.16, 28]} />
-          <meshStandardMaterial color="#1D4E89" roughness={0.3} metalness={0.2} />
-        </mesh>
-        {/* Inner white axle pin */}
-        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.07]}>
-          <cylinderGeometry args={[0.08, 0.08, 0.04, 20]} />
-          <meshStandardMaterial color="#E2E8F0" metalness={0.8} roughness={0.15} />
-        </mesh>
-      </group>
 
       {/* Ghibli Mystery Boxes (x, y, etc.) on this pan */}
       {bagPositions.map((pos, idx) => {
