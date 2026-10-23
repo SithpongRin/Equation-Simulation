@@ -10,24 +10,29 @@ export interface SceneHandle {
   resetCamera: () => void;
 }
 
-// Atmospheric anime magical particles
+// Atmospheric antique amber dust motes
 const AnimeParticles: React.FC<{ isDark: boolean }> = ({ isDark }) => {
-  const count = 40;
+  const count = 48;
   const meshRef = useRef<THREE.Points>(null);
 
   const [positions] = useMemo(() => {
+    let seed = 9182;
+    const rand = () => {
+      seed = (seed * 16807) % 2147483647;
+      return (seed - 1) / 2147483646;
+    };
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 16;
-      pos[i * 3 + 1] = Math.random() * 8 - 1;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 10 - 2;
+      pos[i * 3] = (rand() - 0.5) * 16;
+      pos[i * 3 + 1] = rand() * 8 - 1;
+      pos[i * 3 + 2] = (rand() - 0.5) * 10 - 2;
     }
     return [pos];
   }, []);
 
   useFrame(({ clock }) => {
     if (meshRef.current) {
-      meshRef.current.rotation.y = clock.getElapsedTime() * 0.025;
+      meshRef.current.rotation.y = clock.getElapsedTime() * 0.02;
     }
   });
 
@@ -40,27 +45,45 @@ const AnimeParticles: React.FC<{ isDark: boolean }> = ({ isDark }) => {
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.07}
-        color={isDark ? '#60A5FA' : '#818CF8'}
+        size={0.065}
+        color={isDark ? '#FBBF24' : '#D97706'}
         transparent
-        opacity={isDark ? 0.45 : 0.3}
+        opacity={isDark ? 0.45 : 0.28}
         depthWrite={false}
       />
     </points>
   );
 };
 
-// Seamless Floor Surface
+// Laboratory / Apothecary Desk Mat & Floor Surface
 const TableSurface: React.FC<{ isDark: boolean }> = ({ isDark }) => {
   return (
     <group position={[0, -0.68, 0]}>
+      {/* Jeweler's Baize Felt Desk Mat directly beneath the scale */}
+      <group position={[0, 0.005, 0]}>
+        {/* Soft rounded desk mat */}
+        <mesh receiveShadow position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[5.8, 3.4]} />
+          <meshStandardMaterial
+            color={isDark ? '#0F172A' : '#E2E8F0'}
+            roughness={0.7}
+            metalness={0.05}
+          />
+        </mesh>
+        {/* Gold-embossed border line around desk mat */}
+        <mesh position={[0, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[1.7, 1.708, 48]} />
+          <meshBasicMaterial color="#CCA045" opacity={0.5} transparent />
+        </mesh>
+      </group>
+
       {/* Infinite Seamless Floor Plane */}
       <mesh receiveShadow position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[50, 50]} />
         <meshStandardMaterial
           color={isDark ? '#080C1E' : '#F1F5F9'}
-          roughness={0.85}
-          metalness={0.05}
+          roughness={0.9}
+          metalness={0.02}
         />
       </mesh>
     </group>
@@ -90,7 +113,7 @@ export const Scene = forwardRef<SceneHandle>((_, ref) => {
   return (
     <div className="w-full h-full relative select-none">
       <Canvas
-        camera={{ position: [0, 1.2, 7.5], fov: 36 }}
+        camera={{ position: [0, 1.4, 10.0], fov: 40 }}
         dpr={[1, maxDpr]}
         gl={{
           antialias: !isLowQuality,
@@ -131,13 +154,20 @@ export const Scene = forwardRef<SceneHandle>((_, ref) => {
         {/* Soft fill light from left and right */}
         <directionalLight
           position={[-6, 4, 3]}
-          intensity={0.6}
-          color="#E2E8F0"
+          intensity={0.65}
+          color="#FFF7EA"
         />
         <directionalLight
           position={[6, 4, 3]}
-          intensity={0.6}
-          color="#E2E8F0"
+          intensity={0.65}
+          color="#FFF7EA"
+        />
+
+        {/* Warm Front Key Fill for rich brass specular highlights */}
+        <directionalLight
+          position={[0, 2.5, 7.5]}
+          intensity={isDark ? 0.95 : 1.1}
+          color="#FFE8CE"
         />
 
         {/* Under-glow when solved */}
@@ -178,12 +208,12 @@ export const Scene = forwardRef<SceneHandle>((_, ref) => {
           ref={controlsRef}
           makeDefault
           enablePan={false}
-          minDistance={5}
-          maxDistance={11}
-          minPolarAngle={Math.PI / 4}
-          maxPolarAngle={Math.PI / 2.2}
-          minAzimuthAngle={-Math.PI / 5}
-          maxAzimuthAngle={Math.PI / 5}
+          minDistance={6}
+          maxDistance={15}
+          minPolarAngle={Math.PI / 4.5}
+          maxPolarAngle={Math.PI / 2.15}
+          minAzimuthAngle={-Math.PI / 3.8}
+          maxAzimuthAngle={Math.PI / 3.8}
           dampingFactor={0.06}
           rotateSpeed={0.6}
         />

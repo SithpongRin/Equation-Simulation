@@ -38,6 +38,27 @@ export const Pan: React.FC<PanProps> = ({
   const panDepth = 0.12;
   const surfaceY = 0.08 + panDepth / 2; // Exact top surface of the plate: 0.14
 
+  const materials = useMemo(
+    () => ({
+      brass: new THREE.MeshStandardMaterial({
+        color: ANTIQUE.brass,
+        metalness: 0.95,
+        roughness: 0.24,
+      }),
+      brassBright: new THREE.MeshStandardMaterial({
+        color: ANTIQUE.brassBright,
+        metalness: 0.98,
+        roughness: 0.16,
+      }),
+      brassDark: new THREE.MeshStandardMaterial({
+        color: ANTIQUE.brassDark,
+        metalness: 0.92,
+        roughness: 0.38,
+      }),
+    }),
+    []
+  );
+
   // Concave dish profile (radius, height) revolved around Y
   const dishGeometry = useMemo(() => {
     const p = (r: number, y: number) => new THREE.Vector2(r, y);
@@ -182,30 +203,54 @@ export const Pan: React.FC<PanProps> = ({
       {/* Concave lathe-turned dish: flat floor at surfaceY, sloped wall, rolled rim */}
       <mesh geometry={dishGeometry} castShadow receiveShadow>
         <meshStandardMaterial
-          color={ANTIQUE.brass}
-          metalness={1}
-          roughness={0.3}
+          color={isHovered ? ANTIQUE.brassBright : ANTIQUE.brass}
+          metalness={0.96}
+          roughness={0.24}
           emissive={isHovered ? '#FDE68A' : '#000000'}
           emissiveIntensity={isHovered ? 0.35 : 0}
           side={THREE.DoubleSide}
         />
       </mesh>
 
+      {/* Spun brass concentric decorative rings inside the pan floor */}
+      <mesh position={[0, surfaceY + 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.42, 0.44, 48]} />
+        <meshStandardMaterial color={ANTIQUE.brassBright} metalness={0.98} roughness={0.18} />
+      </mesh>
+      <mesh position={[0, surfaceY + 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.82, 0.84, 48]} />
+        <meshStandardMaterial color={ANTIQUE.brassDark} metalness={0.92} roughness={0.35} />
+      </mesh>
+
       {/* Rolled rim bead */}
       <mesh position={[0, 0.255, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
         <torusGeometry args={[panRadius + 0.02, 0.025, 12, 72]} />
         <meshStandardMaterial
-          color={isHovered ? '#FCD34D' : ANTIQUE.brassDark}
-          metalness={1}
-          roughness={0.32}
+          color={isHovered ? ANTIQUE.brassBright : ANTIQUE.brassDark}
+          metalness={0.98}
+          roughness={0.25}
           emissive={isHovered ? '#FDE68A' : '#000000'}
           emissiveIntensity={isHovered ? 0.4 : 0}
         />
       </mesh>
 
+      {/* Cast-Brass Trunnion Support Cradle beneath the dish (curves DOWNWARD to cradle the dish from below) */}
+      <group position={[0, -0.02, 0]}>
+        <mesh rotation={[Math.PI, 0, 0]} material={materials.brass} castShadow>
+          <torusGeometry args={[0.58, 0.024, 10, 36, Math.PI]} />
+        </mesh>
+        <mesh rotation={[Math.PI, Math.PI / 2, 0]} material={materials.brass} castShadow>
+          <torusGeometry args={[0.58, 0.024, 10, 36, Math.PI]} />
+        </mesh>
+        {/* Support hub connector */}
+        <mesh position={[0, -0.16, 0]} material={materials.brassBright} castShadow>
+          <cylinderGeometry args={[0.09, 0.09, 0.12, 20]} />
+        </mesh>
+      </group>
+
       {/* Turned brass stem down to the beam pivot */}
       <mesh geometry={stemGeometry} position={[0, -0.32, 0]} castShadow>
-        <meshStandardMaterial color={ANTIQUE.brass} metalness={1} roughness={0.3} />
+        <meshStandardMaterial color={ANTIQUE.brass} metalness={0.95} roughness={0.28} />
       </mesh>
 
       {/* Ghibli Mystery Boxes (x, y, etc.) on this pan */}
