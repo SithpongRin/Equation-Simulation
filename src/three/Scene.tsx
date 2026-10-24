@@ -61,19 +61,28 @@ const TableSurface: React.FC<{ isDark: boolean }> = ({ isDark }) => {
     <group position={[0, -0.68, 0]}>
       {/* Jeweler's Baize Felt Desk Mat directly beneath the scale */}
       <group position={[0, 0.005, 0]}>
-        {/* Soft rounded desk mat */}
+        {/* Outer Brass / Walnut Desk Mat Frame */}
+        <mesh receiveShadow position={[0, -0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[6.4, 3.6]} />
+          <meshStandardMaterial
+            color={isDark ? '#1E293B' : '#CBD5E1'}
+            roughness={0.55}
+            metalness={0.25}
+          />
+        </mesh>
+        {/* Soft recessed baize desk mat */}
         <mesh receiveShadow position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[5.8, 3.4]} />
+          <planeGeometry args={[6.16, 3.36]} />
           <meshStandardMaterial
             color={isDark ? '#0F172A' : '#E2E8F0'}
-            roughness={0.7}
+            roughness={0.75}
             metalness={0.05}
           />
         </mesh>
-        {/* Gold-embossed border line around desk mat */}
-        <mesh position={[0, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[1.7, 1.708, 48]} />
-          <meshBasicMaterial color="#CCA045" opacity={0.5} transparent />
+        {/* Subtle center calibration ring beneath the scale plinth */}
+        <mesh position={[0, 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[1.48, 1.50, 64]} />
+          <meshBasicMaterial color="#D4A843" opacity={isDark ? 0.35 : 0.45} transparent />
         </mesh>
       </group>
 

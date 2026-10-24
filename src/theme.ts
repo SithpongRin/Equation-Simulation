@@ -15,16 +15,22 @@ export const ANIME_THEME = {
 
 // Antique brass & cast-iron palette for the 3D balance scale
 export const ANTIQUE = {
+  goldHighlight: '#FFF3B0', // Specular champagne gold highlight
   brassBright: '#F5DE88',   // Gleaming polished brass highlight
-  brass: '#CCA045',         // Classic warm antique brass
-  brassDark: '#78531E',     // Aged patina brass / shadow crevices
+  brass: '#D4A843',         // Classic warm antique brass
+  brassWarm: '#C49234',     // Rich golden-bronze midtone
+  brassDark: '#7A5420',     // Aged patina brass / shadow crevices
   bronze: '#9B6B38',        // Cast bronze accent
-  iron: '#272B33',          // Satin gunmetal cast iron
-  ironDark: '#171A20',      // Deep cast iron
-  walnut: '#55341E',        // Warm polished walnut wood
-  walnutDark: '#351D0E',    // Rich dark mahogany / walnut shadow
-  ivory: '#FAF4E4',         // Aged porcelain / enamel dial face
+  copper: '#B86B43',        // Warm burnished copper accent
+  iron: '#2B303C',          // Satin gunmetal cast iron
+  ironDark: '#171A22',      // Deep cast iron
+  steel: '#CBD5E1',         // Hardened knife-edge bearing steel
+  walnut: '#5C341B',        // Warm polished walnut wood
+  walnutDark: '#361C0D',    // Rich dark mahogany / walnut shadow
+  velvet: '#0F3D3E',        // Deep apothecary baize / emerald-teal velvet inlay
+  ivory: '#FAF5E8',         // Aged porcelain / enamel dial face
   emerald: '#10B981',       // Balanced indicator jewel
+  amber: '#F59E0B',         // Close-to-balance warm amber
   ruby: '#EF4444',          // Unbalanced indicator jewel
 } as const;
 
