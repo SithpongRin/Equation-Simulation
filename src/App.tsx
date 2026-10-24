@@ -45,8 +45,9 @@ export function App() {
   const draggedWeight = useGameStore((s) => s.draggedWeight);
   const draggedVariable = useGameStore((s) => s.draggedVariable);
 
-  // Drag ghost tracking state for touch / mouse
-  const [dragPointer, setDragPointer] = useState<{ x: number; y: number } | null>(null);
+  // Zero-re-render GPU drag ghost ref for 120fps smooth dragging
+  const dragGhostRef = useRef<HTMLDivElement>(null);
+  const initialDragPosRef = useRef<{ x: number; y: number }>({ x: -200, y: -200 });
 
   // Modals
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -184,29 +185,24 @@ export function App() {
     prevBalancedRef.current = balance.isBalanced;
   }, [balance.isBalanced]);
 
-  // Global pointer move & up listeners for smooth drag & drop
+  // Global pointer move & up listeners for 120fps zero-re-render drag & drop
   useEffect(() => {
+    if (!draggedType) return;
+
     const handleMove = (e: MouseEvent | TouchEvent) => {
-      if (!draggedType) return;
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      setDragPointer({ x: clientX, y: clientY });
+      if (dragGhostRef.current) {
+        dragGhostRef.current.style.transform = `translate3d(${clientX}px, ${clientY}px, 0) translate(-50%, -50%)`;
+      }
     };
 
-    const handleUp = () => {
-      setDragPointer(null);
-    };
-
-    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mousemove', handleMove, { passive: true });
     window.addEventListener('touchmove', handleMove, { passive: true });
-    window.addEventListener('mouseup', handleUp);
-    window.addEventListener('touchend', handleUp);
 
     return () => {
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('touchmove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-      window.removeEventListener('touchend', handleUp);
     };
   }, [draggedType]);
 
@@ -218,8 +214,13 @@ export function App() {
     variableItem?: { name: string; value: number },
     customItem?: any
   ) => {
+    initialDragPosRef.current = { x: clientX, y: clientY };
     setDraggedType(type, weightValue, variableItem, customItem);
-    setDragPointer({ x: clientX, y: clientY });
+    requestAnimationFrame(() => {
+      if (dragGhostRef.current) {
+        dragGhostRef.current.style.transform = `translate3d(${clientX}px, ${clientY}px, 0) translate(-50%, -50%)`;
+      }
+    });
   };
 
   return (
@@ -683,11 +684,14 @@ export function App() {
           {/* 3D WebGL Canvas */}
           <Scene ref={sceneRef} />
 
-          {/* Floating Drag Ghost when dragging */}
-          {draggedType && dragPointer && (
+          {/* Floating Drag Ghost when dragging (GPU-accelerated, zero React re-renders) */}
+          {draggedType && (
             <div
-              className="fixed pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-2xl flex items-center justify-center shadow-2xl animate-pulse"
-              style={{ left: dragPointer.x, top: dragPointer.y }}
+              ref={dragGhostRef}
+              className="fixed top-0 left-0 pointer-events-none z-50 w-16 h-16 rounded-2xl flex items-center justify-center shadow-2xl will-change-transform"
+              style={{
+                transform: `translate3d(${initialDragPosRef.current.x}px, ${initialDragPosRef.current.y}px, 0) translate(-50%, -50%)`,
+              }}
             >
               {draggedType === 'bag' ? (
                 <div className="w-14 h-14 rounded-2xl bg-[#0284C7] border-2 border-amber-300 flex items-center justify-center text-white font-black text-2xl shadow-xl">
